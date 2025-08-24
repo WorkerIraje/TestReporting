@@ -33,8 +33,8 @@ body {
 }
 
 .logo {
-  width: 60px;
-  height: 60px;
+  width: 120px;
+  height: 70px;
   margin-bottom: 1rem;
   background: white;
   padding: 8px;
@@ -2252,3 +2252,4 @@ tbody tr:hover {
   margin: 0;
   font-size: 0.9rem;
 }
+
