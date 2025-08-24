@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<<<<<<< HEAD
 <title>Iraje EPM Testing Report — Apha.v1_p1 Patch</title>
 <style>
   body { font-family: Arial, sans-serif; margin:0; padding:20px; background:#f5f5f5; }
@@ -43,16 +44,27 @@
 </style>
 </head>
 
+=======
+<title>Iraje EPM Testing Report — Alpha.v1_p1 Patch</title>
+<link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+>>>>>>> d161e28 (Initial commit)
 <body>
 <!-- Cover Page -->
 <div class="cover-page">
   <img class="logo" id="coverLogo" alt="Iraje Logo" />
   <h1>Iraje EPM Testing Report</h1>
+<<<<<<< HEAD
   <h2>Build: Apha.v1_p1</h2>
+=======
+  <h2>Build: Alpha.v1_p1</h2>
+>>>>>>> d161e28 (Initial commit)
   <h2>Date: <input class="print-hide" type="text" id="reportDate" placeholder="DD/MM/YYYY" oninput="saveHeader()" /></h2>
   <h2>Tester: <input class="print-hide" type="text" id="testerName" placeholder="Name" oninput="saveHeader()" /></h2>
 </div>
 
+<<<<<<< HEAD
 <div class="toolbar">
   <input class="print-hide" type="file" id="excelFile" accept=".xlsx,.xls" />
   <button class="print-hide" id="btnImport">Import Excel</button>
@@ -91,10 +103,333 @@
     <div style="margin-top:12px;">
       <button onclick="applySheetSelection()">Build Checklist</button>
       <button onclick="closeSheetPicker()">Cancel</button>
+=======
+<!-- Navigation Tabs -->
+<div class="navigation-container print-hide">
+  <div class="nav-tabs">
+    <button class="nav-tab active" data-page="workspace">
+      📝 Workspace
+    </button>
+    <button class="nav-tab" data-page="status">
+      📊 Status Dashboard
+    </button>
+    <button class="nav-tab" data-page="reports">
+      📋 Reports
+    </button>
+    <button class="nav-tab" data-page="summary">
+      📋 Summary Report
+    </button>
+  </div>
+</div>
+
+<!-- Enhanced Toolbar -->
+<div class="toolbar enhanced-toolbar print-hide" id="workspaceToolbar">
+  <!-- File Import Section -->
+  <div class="toolbar-group file-group">
+    <div class="file-input-wrapper">
+      <input class="print-hide" type="file" id="excelFile" accept=".xlsx,.xls,.csv,.tsv" />
+      <label for="excelFile" class="file-label">
+        <i class="fas fa-folder-open"></i>
+        Browse Files
+      </label>
+      <button class="clear-file-btn print-hide" id="clearFileBtn" onclick="clearFileSelection()">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <button class="btn-primary print-hide" id="btnImport">
+      <i class="fas fa-upload"></i>
+      Import Excel
+    </button>
+  </div>
+
+  <!-- Project Actions Section -->
+  <div class="toolbar-group project-group">
+    <button class="btn-success print-hide" id="saveProjectBtn">
+      <i class="fas fa-save"></i>
+      Save Changes
+    </button>
+    <button class="btn-info print-hide" id="downloadTemplateBtn">
+      <i class="fas fa-download"></i>
+      Download Template
+    </button>
+  </div>
+
+  <!-- Data Actions Section -->
+  <div class="toolbar-group data-group">
+    <button class="btn-danger print-hide" id="clearDataBtn" onclick="showClearDataModal()">
+      <i class="fas fa-trash-alt"></i>
+      Clear Saved Data
+    </button>
+    <button class="btn-danger delete-sheet-btn print-hide" id="deleteSheetBtn" onclick="showDeleteSheetModal()" style="display: none;">
+      <i class="fas fa-exclamation-triangle"></i>
+      Delete All Test Cases
+    </button>
+  </div>
+
+  <span class="meta" id="loadInfo"></span>
+</div>
+
+<!-- Page Content Container -->
+<div class="page-content">
+  
+  <!-- Workspace Page -->
+  <div class="page" id="workspacePage" data-page="workspace">
+    <!-- Simplified Empty State Message -->
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">
+        <i class="fas fa-file-excel"></i>
+      </div>
+      <h3>No Test Cases Imported Yet</h3>
+      <p>Import your Excel test case file using the toolbar above to get started with test execution management.</p>
+    </div>
+
+    <!-- Test Cases Container -->
+    <div id="sectionsRoot" style="display: none;"></div>
+  </div>
+
+  <!-- Enhanced Status Dashboard Page -->
+  <div class="page" id="statusPage" data-page="status" style="display: none;">
+    <div class="status-dashboard">
+      <div class="dashboard-header">
+        <div>
+          <h2>📊 Module Status Dashboard</h2>
+          <p class="dashboard-subtitle">Real-time overview of test execution progress across modules</p>
+        </div>
+        <button class="refresh-btn" id="refreshStatusBtn" onclick="Dashboard.refreshStatus()">
+          <i class="fas fa-sync-alt" id="refreshIcon"></i>
+          <span>Refresh Status</span>
+        </button>
+      </div>
+      
+      <!-- Dashboard Overview Cards -->
+      <div class="dashboard-overview">
+        <div class="overview-card total-card">
+          <div class="card-icon">
+            <i class="fas fa-clipboard-list"></i>
+          </div>
+          <div class="card-content">
+            <div class="card-number" id="totalTestsCard">0</div>
+            <div class="card-label">Total Tests</div>
+          </div>
+        </div>
+        
+        <div class="overview-card passed-card">
+          <div class="card-icon">
+            <i class="fas fa-check-circle"></i>
+          </div>
+          <div class="card-content">
+            <div class="card-number" id="passedTestsCard">0</div>
+            <div class="card-label">Passed Tests</div>
+          </div>
+        </div>
+        
+        <div class="overview-card failed-card">
+          <div class="card-icon">
+            <i class="fas fa-times-circle"></i>
+          </div>
+          <div class="card-content">
+            <div class="card-number" id="failedTestsCard">0</div>
+            <div class="card-label">Failed Tests</div>
+          </div>
+        </div>
+        
+        <div class="overview-card blocked-card">
+          <div class="card-icon">
+            <i class="fas fa-ban"></i>
+          </div>
+          <div class="card-content">
+            <div class="card-number" id="blockedTestsCard">0</div>
+            <div class="card-label">Blocked Tests</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Module Details -->
+      <div id="statusDashboard">
+        <div class="empty-state">
+          <div class="empty-icon">
+            <i class="fas fa-chart-bar"></i>
+          </div>
+          <h3>No Test Data Available</h3>
+          <p>Import test cases to view module status dashboard.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Enhanced Reports Page -->
+  <div class="page" id="reportsPage" data-page="reports" style="display: none;">
+    <div class="reports-section">
+      <div class="reports-header">
+        <div>
+          <h2>📋 Test Reports Generator</h2>
+          <p class="reports-subtitle">Generate professional reports in multiple formats (PDF, HTML, DOCX)</p>
+        </div>
+        <button class="refresh-btn" id="refreshReportsBtn" onclick="ReportGenerator.refreshReports()">
+          <i class="fas fa-sync-alt" id="refreshReportsIcon"></i>
+          <span>Refresh Reports</span>
+        </button>
+      </div>
+      
+      <div class="reports-grid">
+        
+        <!-- Defect Report -->
+        <div class="report-card">
+          <div class="report-icon">🐛</div>
+          <h3>Defect Report</h3>
+          <p>Comprehensive report of all failed test cases with detailed analysis and screenshots</p>
+          <div class="report-stats" id="defectStats">
+            <span class="stat-number">0</span>
+            <span class="stat-label">Failed Tests</span>
+          </div>
+          <div class="report-formats">
+            <span>Available in: PDF • HTML • DOCX</span>
+          </div>
+          <button class="report-btn" onclick="ReportGenerator.generateDefectReport()">
+            Generate Defect Report
+          </button>
+        </div>
+
+        <!-- Full Report -->
+        <div class="report-card">
+          <div class="report-icon">📊</div>
+          <h3>Full Test Report</h3>
+          <p>Complete test execution report with all test cases, status, and detailed execution logs</p>
+          <div class="report-stats" id="fullStats">
+            <span class="stat-number">0</span>
+            <span class="stat-label">Total Tests</span>
+          </div>
+          <div class="report-formats">
+            <span>Available in: PDF • HTML • DOCX</span>
+          </div>
+          <button class="report-btn" onclick="ReportGenerator.generateFullReport()">
+            Generate Full Report
+          </button>
+        </div>
+
+        <!-- Security Report -->
+        <div class="report-card">
+          <div class="report-icon">🔒</div>
+          <h3>Security Report</h3>
+          <p>Focused report on security-related test cases with risk assessment and compliance status</p>
+          <div class="report-stats" id="securityStats">
+            <span class="stat-number">0</span>
+            <span class="stat-label">Security Tests</span>
+          </div>
+          <div class="report-formats">
+            <span>Available in: PDF • HTML • DOCX</span>
+          </div>
+          <button class="report-btn" onclick="ReportGenerator.generateSecurityReport()">
+            Generate Security Report
+          </button>
+        </div>
+
+        <!-- Enhancement Report -->
+        <div class="report-card disabled">
+          <div class="report-icon">⚡</div>
+          <h3>Enhancement Report</h3>
+          <p>Advanced analytics and improvement recommendations based on test execution patterns</p>
+          <div class="report-stats">
+            <span class="stat-number">Soon</span>
+            <span class="stat-label">Coming</span>
+          </div>
+          <div class="report-formats">
+            <span>Multi-format support</span>
+          </div>
+          <button class="report-btn" disabled>
+            Coming Soon
+          </button>
+        </div>
+
+      </div>
+
+      <!-- Report History -->
+      <div class="report-history">
+        <h3>Recent Reports</h3>
+        <div id="reportHistoryList">
+          <p class="no-reports">No reports generated yet. Generate your first report above!</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Enhanced Summary Report Page -->
+  <div class="page" id="summaryPage" data-page="summary" style="display: none;">
+    <div class="summary-report">
+      <div class="summary-header">
+        <div>
+          <h2>📋 Test Execution Summary</h2>
+          <p class="summary-subtitle">Comprehensive overview of test execution progress and results</p>
+        </div>
+        <div class="summary-actions">
+          <button class="refresh-btn" id="refreshSummaryBtn" onclick="Summary.refreshSummary()">
+            <i class="fas fa-sync-alt" id="refreshSummaryIcon"></i>
+            <span>Refresh Summary</span>
+          </button>
+          <button class="btn-export-summary" id="exportSummaryBtn" onclick="exportSummary()">
+            <i class="fas fa-file-export"></i>
+            Export Summary
+          </button>
+        </div>
+      </div>
+      
+      <!-- Automated Summary Table -->
+      <section id="summary">
+        <table id="summaryTable">
+          <thead>
+            <tr>
+              <th>Module</th>
+              <th>Total</th>
+              <th>Passed</th>
+              <th>Failed</th>
+              <th>Blocked</th>
+              <th>% Pass</th>
+              <th>Attended</th>
+              <th>Pending</th>
+              <th>Progress</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+
+      <!-- Signature Section -->
+      <section class="signature">
+        <h2>Tester Signature</h2>
+        <input class="print-hide" type="text" placeholder="Signature / Name" id="signature" oninput="saveHeader()">
+      </section>
+    </div>
+  </div>
+
+</div>
+
+<footer></footer>
+
+<!-- Enhanced Sheet picker modal -->
+<div class="sheet-picker" id="sheetPicker">
+  <div class="sheet-modal">
+    <div class="sheet-header">
+      <h3>📊 Select sheets to import</h3>
+      <button class="sheet-close" onclick="closeSheetPicker()">×</button>
+    </div>
+    <div class="sheet-body">
+      <p class="sheet-hint">Select one or more sheets to import. You can re-import anytime to update your workspace.</p>
+      <div class="sheet-list" id="sheetList"></div>
+    </div>
+    <div class="sheet-footer">
+      <button class="btn-primary" onclick="applySheetSelection()">
+        <i class="fas fa-check"></i> Import Selected Sheets
+      </button>
+      <button class="btn-secondary" onclick="closeSheetPicker()">
+        <i class="fas fa-times"></i> Cancel
+      </button>
+>>>>>>> d161e28 (Initial commit)
     </div>
   </div>
 </div>
 
+<<<<<<< HEAD
 <!-- External libs -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
@@ -801,3 +1136,122 @@ window.closeSheetPicker = closeSheetPicker;
 window.exportDocx = exportDocx;
 
 </script>
+=======
+<!-- Project Resume Dialog -->
+<div class="modal" id="projectResumeModal">
+  <div class="modal-content project-modal">
+    <div class="modal-header">
+      <h3><i class="fas fa-history"></i> Project Found</h3>
+    </div>
+    <div class="modal-body">
+      <div class="project-info">
+        <div class="project-icon">
+          <i class="fas fa-folder-open"></i>
+        </div>
+        <div class="project-details">
+          <h4 id="projectFileName">Project Name</h4>
+          <p id="projectLastModified">Last modified: --</p>
+          <p id="projectTestCount">Test cases: --</p>
+        </div>
+      </div>
+      <p class="project-question">We found a saved project with this name. What would you like to do?</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="ProjectManager.chooseFreshStart()">
+        <i class="fas fa-refresh"></i>
+        Fresh Start
+      </button>
+      <button class="btn-primary" onclick="ProjectManager.resumeProject()">
+        <i class="fas fa-play"></i>
+        Resume Last Session
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Clear Data Confirmation Modal -->
+<div class="modal" id="clearDataModal">
+  <div class="modal-content danger-modal">
+    <div class="modal-header">
+      <h3><i class="fas fa-exclamation-triangle"></i> Clear All Saved Data</h3>
+    </div>
+    <div class="modal-body">
+      <p><strong>Warning:</strong> This action will permanently delete:</p>
+      <ul>
+        <li>All test case progress and status</li>
+        <li>All saved notes and comments</li>
+        <li>All uploaded screenshots</li>
+        <li>All project data</li>
+      </ul>
+      <p>This action cannot be undone. Are you sure you want to continue?</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeClearDataModal()">Cancel</button>
+      <button class="btn-danger" onclick="confirmClearData()">
+        <i class="fas fa-trash-alt"></i>
+        Clear All Data
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Sheet Confirmation Modal -->
+<div class="modal" id="deleteSheetModal">
+  <div class="modal-content danger-modal">
+    <div class="modal-header">
+      <h3><i class="fas fa-exclamation-triangle"></i> Delete All Test Cases</h3>
+    </div>
+    <div class="modal-body">
+      <p><strong>Critical Action:</strong> This will permanently delete all imported test cases from the workspace.</p>
+      <p>To confirm this action, type <strong>DELETE</strong> in the box below:</p>
+      <input type="text" id="deleteConfirmInput" placeholder="Type DELETE to confirm" class="confirm-input">
+      <div class="validation-error" id="deleteValidationError" style="display: none;">
+        Please type "DELETE" exactly to confirm this action.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeDeleteSheetModal()">Cancel</button>
+      <button class="btn-danger" id="confirmDeleteBtn" onclick="confirmDeleteSheet()" disabled>
+        <i class="fas fa-trash-alt"></i>
+        Delete All Test Cases
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Success Notification -->
+<div class="notification success" id="successNotification" style="display: none;">
+  <i class="fas fa-check-circle"></i>
+  <span id="successMessage"></span>
+  <button onclick="closeNotification('success')" class="notification-close">&times;</button>
+</div>
+
+<!-- Error Notification -->
+<div class="notification error" id="errorNotification" style="display: none;">
+  <i class="fas fa-exclamation-circle"></i>
+  <span id="errorMessage"></span>
+  <button onclick="closeNotification('error')" class="notification-close">&times;</button>
+</div>
+
+<!-- External libs -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+<!-- Application modules -->
+<script src="js/config.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/project-manager.js"></script>
+<script src="js/excel-handler.js"></script>
+<script src="js/ui-renderer.js"></script>
+<script src="js/summary.js"></script>
+<script src="js/navigation.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/notifications.js"></script>
+<script src="js/report-generator.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
+>>>>>>> d161e28 (Initial commit)
