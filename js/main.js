@@ -359,8 +359,8 @@ const App = {
   downloadTemplate() {
     try {
       const link = document.createElement('a');
-      link.href = 'assets/IrajeTemplate.xlsx';
-      link.download = 'IrajeTemplate.xlsx';
+      link.href = 'assets/IrajeTestcaseTemplate.xlsx';
+      link.download = 'IrajeTestcaseTemplate.xlsx';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -769,3 +769,4 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   }
 });
+
