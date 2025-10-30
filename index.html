@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
-<!-- Cover Page -->
+
 <div class="cover-page">
   <img class="logo" id="coverLogo" alt="Iraje Logo" />
   <h1>Iraje Test Management Portal</h1>
@@ -17,7 +17,7 @@
   <h2>Tester: <input class="print-hide" type="text" id="testerName" placeholder="Name" oninput="saveHeader()" /></h2>
 </div>
 
-<!-- Navigation Tabs -->
+
 <div class="navigation-container print-hide">
   <div class="nav-tabs">
     <button class="nav-tab active" data-page="workspace">
@@ -35,9 +35,9 @@
   </div>
 </div>
 
-<!-- Enhanced Toolbar -->
+
 <div class="toolbar enhanced-toolbar print-hide" id="workspaceToolbar">
-  <!-- File Import Section -->
+
   <div class="toolbar-group file-group">
     <div class="file-input-wrapper">
       <input class="print-hide" type="file" id="excelFile" accept=".xlsx,.xls,.csv,.tsv" />
@@ -55,7 +55,7 @@
     </button>
   </div>
 
-  <!-- Project Actions Section -->
+
   <div class="toolbar-group project-group">
     <button class="btn-success print-hide" id="saveProjectBtn">
       <i class="fas fa-save"></i>
@@ -67,7 +67,7 @@
     </button>
   </div>
 
-  <!-- Data Actions Section -->
+
   <div class="toolbar-group data-group">
     <button class="btn-danger print-hide" id="clearDataBtn" onclick="showClearDataModal()">
       <i class="fas fa-trash-alt"></i>
@@ -82,12 +82,12 @@
   <span class="meta" id="loadInfo"></span>
 </div>
 
-<!-- Page Content Container -->
+
 <div class="page-content">
   
-  <!-- Workspace Page -->
+
   <div class="page" id="workspacePage" data-page="workspace">
-    <!-- Simplified Empty State Message -->
+
     <div class="empty-state" id="emptyState">
       <div class="empty-icon">
         <i class="fas fa-file-excel"></i>
@@ -96,11 +96,11 @@
       <p>Import your Excel test case file using the toolbar above to get started with test execution management.</p>
     </div>
 
-    <!-- Test Cases Container -->
+
     <div id="sectionsRoot" style="display: none;"></div>
   </div>
 
-  <!-- Enhanced Status Dashboard Page -->
+
   <div class="page" id="statusPage" data-page="status" style="display: none;">
     <div class="status-dashboard">
       <div class="dashboard-header">
@@ -114,7 +114,7 @@
         </button>
       </div>
       
-      <!-- Dashboard Overview Cards -->
+
       <div class="dashboard-overview">
         <div class="overview-card total-card">
           <div class="card-icon">
@@ -157,7 +157,7 @@
         </div>
       </div>
 
-      <!-- Module Details -->
+
       <div id="statusDashboard">
         <div class="empty-state">
           <div class="empty-icon">
@@ -170,7 +170,7 @@
     </div>
   </div>
 
-  <!-- Enhanced Reports Page -->
+
   <div class="page" id="reportsPage" data-page="reports" style="display: none;">
     <div class="reports-section">
       <div class="reports-header">
@@ -186,7 +186,7 @@
       
       <div class="reports-grid">
         
-        <!-- Defect Report -->
+ 
         <div class="report-card">
           <div class="report-icon">🐛</div>
           <h3>Defect Report</h3>
@@ -203,7 +203,7 @@
           </button>
         </div>
 
-        <!-- Full Report -->
+
         <div class="report-card">
           <div class="report-icon">📊</div>
           <h3>Full Test Report</h3>
@@ -220,7 +220,7 @@
           </button>
         </div>
 
-        <!-- Security Report -->
+
         <div class="report-card">
           <div class="report-icon">🔒</div>
           <h3>Security Report</h3>
@@ -237,7 +237,7 @@
           </button>
         </div>
 
-        <!-- Enhancement Report -->
+
         <div class="report-card disabled">
           <div class="report-icon">⚡</div>
           <h3>Enhancement Report</h3>
@@ -256,7 +256,7 @@
 
       </div>
 
-      <!-- Report History -->
+
       <div class="report-history">
         <h3>Recent Reports</h3>
         <div id="reportHistoryList">
@@ -267,7 +267,6 @@
     </div>
   </div>
 
-  <!-- Enhanced Summary Report Page -->
   <div class="page" id="summaryPage" data-page="summary" style="display: none;">
     <div class="summary-report">
       <div class="summary-header">
@@ -287,7 +286,6 @@
         </div>
       </div>
       
-      <!-- Automated Summary Table -->
       <section id="summary">
         <table id="summaryTable">
           <thead>
@@ -307,7 +305,6 @@
         </table>
       </section>
 
-      <!-- Signature Section -->
       <section class="signature">
         <h2>Tester Signature</h2>
         <input class="print-hide" type="text" placeholder="Signature / Name" id="signature" oninput="saveHeader()">
@@ -319,7 +316,6 @@
 
 <footer></footer>
 
-<!-- Enhanced Sheet picker modal -->
 <div class="sheet-picker" id="sheetPicker">
   <div class="sheet-modal">
     <div class="sheet-header">
@@ -341,7 +337,7 @@
   </div>
 </div>
 
-<!-- Project Resume Dialog -->
+
 <div class="modal" id="projectResumeModal">
   <div class="modal-content project-modal">
     <div class="modal-header">
@@ -373,7 +369,7 @@
   </div>
 </div>
 
-<!-- Clear Data Confirmation Modal -->
+
 <div class="modal" id="clearDataModal">
   <div class="modal-content danger-modal">
     <div class="modal-header">
@@ -399,7 +395,7 @@
   </div>
 </div>
 
-<!-- Delete Sheet Confirmation Modal -->
+
 <div class="modal" id="deleteSheetModal">
   <div class="modal-content danger-modal">
     <div class="modal-header">
@@ -423,27 +419,24 @@
   </div>
 </div>
 
-<!-- Success Notification -->
 <div class="notification success" id="successNotification" style="display: none;">
   <i class="fas fa-check-circle"></i>
   <span id="successMessage"></span>
   <button onclick="closeNotification('success')" class="notification-close">&times;</button>
 </div>
 
-<!-- Error Notification -->
 <div class="notification error" id="errorNotification" style="display: none;">
   <i class="fas fa-exclamation-circle"></i>
   <span id="errorMessage"></span>
   <button onclick="closeNotification('error')" class="notification-close">&times;</button>
 </div>
 
-<!-- External libs -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
-<!-- Application modules -->
+
 <script src="js/config.js"></script>
 <script src="js/utils.js"></script>
 <script src="js/storage.js"></script>
