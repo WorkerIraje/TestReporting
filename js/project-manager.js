@@ -1,14 +1,14 @@
-// Project Manager - Handles project saving, loading, and resume functionality
+
 const ProjectManager = {
     currentProject: null,
     projectCallback: null,
   
-    // Initialize project manager
+
     init() {
       this.setupAutoSave();
     },
   
-    // Check if project exists and show resume dialog
+
     checkExistingProject(filename, callback) {
       this.projectCallback = callback;
       const savedProject = this.getProjectData(filename);
@@ -16,12 +16,12 @@ const ProjectManager = {
       if (savedProject && savedProject.testCases && savedProject.testCases.length > 0) {
         this.showProjectResumeDialog(filename, savedProject);
       } else {
-        // No existing project, proceed with fresh start
+  
         callback('fresh');
       }
     },
   
-    // Show project resume dialog
+
     showProjectResumeDialog(filename, projectData) {
       const modal = document.getElementById('projectResumeModal');
       const projectFileName = document.getElementById('projectFileName');
@@ -36,7 +36,7 @@ const ProjectManager = {
       modal.classList.add('show');
     },
   
-    // Resume existing project
+
     resumeProject() {
       this.closeProjectDialog();
       if (this.projectCallback) {
@@ -44,7 +44,7 @@ const ProjectManager = {
       }
     },
   
-    // Start fresh project
+
     chooseFreshStart() {
       this.closeProjectDialog();
       if (this.projectCallback) {
@@ -52,14 +52,14 @@ const ProjectManager = {
       }
     },
   
-    // Close project dialog
+
     closeProjectDialog() {
       const modal = document.getElementById('projectResumeModal');
       modal.style.display = 'none';
       modal.classList.remove('show');
     },
   
-    // Save current project
+
     saveProject(projectName) {
       const state = window.AppState;
       if (!state.flatRows || state.flatRows.length === 0) {
@@ -78,11 +78,11 @@ const ProjectManager = {
           workbookInfo: {
             sheetNames: state.sheets
           },
-          // Save all test case states
+
           testCaseStates: {}
         };
   
-        // Collect all test case states
+      
         state.flatRows.forEach(testCase => {
           const saved = window.Storage?.loadRowState(testCase.id);
           if (saved) {
@@ -90,10 +90,10 @@ const ProjectManager = {
           }
         });
   
-        // Save to localStorage
+     
         localStorage.setItem(`project_${projectName}`, JSON.stringify(projectData));
         
-        // Update current project
+ 
         this.currentProject = projectName;
         
         showSuccessNotification(`Project "${projectName}" saved successfully!`);
@@ -105,7 +105,7 @@ const ProjectManager = {
       }
     },
   
-    // Load project data
+
     loadProject(projectName) {
       try {
         const projectData = this.getProjectData(projectName);
@@ -116,14 +116,14 @@ const ProjectManager = {
   
         const state = window.AppState;
         
-        // Restore project data
+      
         state.flatRows = projectData.testCases || [];
         state.rowsByGroup = projectData.groupedData || {};
         state.selectedSheets = projectData.selectedSheets || [];
         state.sheets = projectData.workbookInfo?.sheetNames || [];
         state.loadedCount = state.flatRows.length;
   
-        // Restore test case states
+       
         if (projectData.testCaseStates) {
           Object.entries(projectData.testCaseStates).forEach(([testId, savedState]) => {
             window.Storage?.saveRowState(testId, savedState);
@@ -145,7 +145,7 @@ const ProjectManager = {
       }
     },
   
-    // Get project data from localStorage
+  
     getProjectData(projectName) {
       try {
         const data = localStorage.getItem(`project_${projectName}`);
@@ -156,53 +156,53 @@ const ProjectManager = {
       }
     },
   
-    // Auto-save current project
+
     autoSaveProject() {
       if (this.currentProject && window.AppState.flatRows.length > 0) {
         this.saveProject(this.currentProject);
       }
     },
   
-    // Setup auto-save functionality
+
     setupAutoSave() {
-      // Auto-save every 30 seconds if there are changes
+
       setInterval(() => {
         this.autoSaveProject();
       }, 30000);
   
-      // Auto-save before page unload
+
       window.addEventListener('beforeunload', () => {
         this.autoSaveProject();
       });
     },
   
-    // Mark test case as attended when changed
+
     markTestCaseAttended(testId) {
       const currentState = window.Storage?.loadRowState(testId) || {};
       currentState.attended = true;
       currentState.lastModified = new Date().toISOString();
       window.Storage?.saveRowState(testId, currentState);
       
-      // Auto-save project
+
       this.autoSaveProject();
     },
   
-    // Allow user to manually mark as unattended
+
     markTestCaseUnattended(testId) {
       const currentState = window.Storage?.loadRowState(testId) || {};
       currentState.attended = false;
       currentState.lastModified = new Date().toISOString();
       window.Storage?.saveRowState(testId, currentState);
       
-      // Auto-save project
+ 
       this.autoSaveProject();
     }
   };
   
-  // Export globally
+
   window.ProjectManager = ProjectManager;
   
-  // Initialize when DOM is ready
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => ProjectManager.init());
   } else {
