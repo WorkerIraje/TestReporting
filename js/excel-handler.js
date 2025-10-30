@@ -1,6 +1,5 @@
-// Enhanced Excel Handler - Complete Version with Fixed ID Sorting
+
 const ExcelHandler = {
-  // Enhanced validation rules
   validationRules: {
     required: ['id', 'title'],
     maxLengths: {
@@ -12,7 +11,7 @@ const ExcelHandler = {
     allowedTypes: ['Functional', 'UI', 'API', 'Integration', 'Security', 'Performance', '']
   },
 
-  // Import history and statistics
+
   importHistory: [],
   duplicateIds: new Map(),
   transformationRules: [],
@@ -20,7 +19,7 @@ const ExcelHandler = {
   errors: [],
   warnings: [],
 
-  // Phase 2: Support multiple file formats
+
   supportedFormats: {
     '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     '.xls': 'application/vnd.ms-excel',
@@ -28,7 +27,7 @@ const ExcelHandler = {
     '.tsv': 'text/tab-separated-values'
   },
 
-  // Enhanced file reading with CSV support
+
   async readFile(file) {
     this.clearMessages();
     
@@ -55,7 +54,7 @@ const ExcelHandler = {
     }
   },
 
-  // CSV file reader
+
   async readCsvFile(file, isTabSeparated = false) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -84,15 +83,15 @@ const ExcelHandler = {
     });
   },
 
-  // Convert CSV to workbook format
+
   csvToWorkbook(text, delimiter, filename) {
     const lines = text.split('\n').filter(line => line.trim());
     const rows = lines.map(line => this.parseCsvLine(line, delimiter));
     
-    // Create worksheet
+
     const ws = XLSX.utils.aoa_to_sheet(rows);
     
-    // Create workbook
+
     const wb = {
       Sheets: { [this.getFileBaseName(filename)]: ws },
       SheetNames: [this.getFileBaseName(filename)]
@@ -101,7 +100,7 @@ const ExcelHandler = {
     return wb;
   },
 
-  // Parse CSV line handling quoted values
+
   parseCsvLine(line, delimiter) {
     const result = [];
     let current = '';
@@ -124,17 +123,16 @@ const ExcelHandler = {
     return result;
   },
 
-  // Get file extension
+
   getFileExtension(filename) {
     return filename.toLowerCase().substring(filename.lastIndexOf('.'));
   },
 
-  // Get file base name without extension
+
   getFileBaseName(filename) {
     return filename.substring(0, filename.lastIndexOf('.')) || filename;
   },
 
-  // Enhanced file validation with multiple formats
   validateFile(file) {
     const maxSize = 50 * 1024 * 1024; // 50MB
     const extension = this.getFileExtension(file.name);
@@ -158,7 +156,7 @@ const ExcelHandler = {
     return { isValid: true };
   },
 
-  // Original Excel reader (keeping for backward compatibility)
+
   async readExcelFile(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -191,7 +189,7 @@ const ExcelHandler = {
     });
   },
 
-  // Validate workbook structure
+
   validateWorkbook(wb) {
     if (!wb || !wb.Sheets) {
       return { isValid: false, message: "Invalid file structure" };
@@ -218,14 +216,14 @@ const ExcelHandler = {
     return { isValid: true };
   },
 
-  // Phase 2: Duplicate ID detection and handling
+
   detectDuplicateIds(flatRows) {
     this.duplicateIds.clear();
     const idMap = new Map();
     
     flatRows.forEach((row, index) => {
       if (idMap.has(row.id)) {
-        // Found duplicate
+
         const existingIndex = idMap.get(row.id);
         
         if (!this.duplicateIds.has(row.id)) {
@@ -233,7 +231,7 @@ const ExcelHandler = {
         }
         this.duplicateIds.get(row.id).push(index);
         
-        // Auto-resolve by appending suffix
+   
         let suffix = 1;
         let newId = `${row.id}_${suffix}`;
         while (idMap.has(newId)) {
@@ -253,7 +251,7 @@ const ExcelHandler = {
     return this.duplicateIds.size > 0;
   },
 
-  // Phase 2: Data transformation rules
+
   applyTransformationRules(row) {
     this.transformationRules.forEach(rule => {
       try {
@@ -302,7 +300,6 @@ const ExcelHandler = {
     return row;
   },
 
-  // Add default transformation rules
   initializeDefaultRules() {
     this.transformationRules = [
       {
@@ -335,7 +332,7 @@ const ExcelHandler = {
     ];
   },
 
-  // Convert worksheet to JSON with headers
+
   sheetToJsonWithHeaders(ws) {
     const o = XLSX.utils.sheet_to_json(ws, { 
       header: 1, 
@@ -360,7 +357,7 @@ const ExcelHandler = {
     return { headers, rows };
   },
 
-  // Create header index for column mapping
+
   makeHeaderIndex(headers) {
     const idx = {};
     headers.forEach((h, i) => {
@@ -371,26 +368,7 @@ const ExcelHandler = {
     return idx;
   },
 
-  // Build column index with fallback strategies
-  buildColumnIndex(map, headerIndex, sheetName) {
-    if (map) {
-      return {
-        module: this.resolveColIndex(headerIndex, map.moduleCol),
-        id: this.resolveColIndex(headerIndex, map.idCol),
-        title: this.resolveColIndex(headerIndex, map.titleCol),
-        field: this.resolveColIndex(headerIndex, map.fieldCol),
-        type: this.resolveColIndex(headerIndex, map.typeCol),
-        pre: this.resolveColIndex(headerIndex, map.preCol),
-        steps: this.resolveColIndex(headerIndex, map.stepsCol),
-        data: this.resolveColIndex(headerIndex, map.dataCol),
-        expected: this.resolveColIndex(headerIndex, map.expectedCol),
-      };
-    }
-    
-    return this.autoDetectColumns(headerIndex);
-  },
 
-  // Auto-detect columns when no mapping exists
   autoDetectColumns(headerIndex) {
     const patterns = {
       id: /test.?id|id|#/i,
@@ -402,6 +380,9 @@ const ExcelHandler = {
       steps: /step|procedure|action/i,
       data: /data|input|value/i,
       expected: /expected|result|outcome/i,
+      // **NEW: Status and Actual Result patterns**
+      status: /status|result|outcome|pass|fail|block/i,
+      actualResult: /actual.?result|actual|actual.?output|observed.?result/i,
     };
 
     const colIdx = {};
@@ -414,11 +395,31 @@ const ExcelHandler = {
         }
       }
     }
-
     return colIdx;
   },
 
-  // Resolve column index from configuration
+
+  buildColumnIndex(map, headerIndex, sheetName) {
+    if (map) {
+      return {
+        module: this.resolveColIndex(headerIndex, map.moduleCol),
+        id: this.resolveColIndex(headerIndex, map.idCol),
+        title: this.resolveColIndex(headerIndex, map.titleCol),
+        field: this.resolveColIndex(headerIndex, map.fieldCol),
+        type: this.resolveColIndex(headerIndex, map.typeCol),
+        pre: this.resolveColIndex(headerIndex, map.preCol),
+        steps: this.resolveColIndex(headerIndex, map.stepsCol),
+        data: this.resolveColIndex(headerIndex, map.dataCol),
+        expected: this.resolveColIndex(headerIndex, map.expectedCol),
+        // **NEW: Status and Actual Result columns**
+        status: this.resolveColIndex(headerIndex, map.statusCol),
+        actualResult: this.resolveColIndex(headerIndex, map.actualResultCol),
+      };
+    }
+    return this.autoDetectColumns(headerIndex);
+  },
+
+
   resolveColIndex(headerIndex, configuredName) {
     if (!configuredName) return -1;
     
@@ -437,7 +438,7 @@ const ExcelHandler = {
     return -1;
   },
 
-  // Validate column mapping
+
   validateColumnMapping(colIdx, sheetName) {
     const missing = [];
     if (colIdx.id === -1) missing.push('Test ID');
@@ -448,7 +449,6 @@ const ExcelHandler = {
     }
   },
 
-  // Check if row is non-data (summary, total, etc.)
   isNonDataRow(firstCell) {
     const t = Utils.normalizeHeaderKey(firstCell || "");
     if (!t) return false;
@@ -458,7 +458,7 @@ const ExcelHandler = {
     return false;
   },
 
-  // Parse individual row with better data handling
+
   parseRow(r, colIdx, sheetName, rowNum) {
     const firstCell = r[0];
     if (this.isNonDataRow(firstCell)) return null;
@@ -467,6 +467,10 @@ const ExcelHandler = {
     const title = Utils.safeTrim(colIdx.title >= 0 ? r[colIdx.title] : "");
     
     if (!testId && !title) return null;
+
+
+    const statusRaw = Utils.safeTrim(colIdx.status >= 0 ? r[colIdx.status] : "");
+    const actualResult = Utils.safeTrim(colIdx.actualResult >= 0 ? r[colIdx.actualResult] : "");
 
     const row = {
       sheet: sheetName,
@@ -480,13 +484,42 @@ const ExcelHandler = {
       steps: Utils.safeTrim(colIdx.steps >= 0 ? r[colIdx.steps] : ""),
       data: Utils.safeTrim(colIdx.data >= 0 ? r[colIdx.data] : ""),
       expected: Utils.safeTrim(colIdx.expected >= 0 ? r[colIdx.expected] : ""),
+      
+      // **NEW: Status and Actual Result fields**
+      importedStatus: this.normalizeStatus(statusRaw),
+      importedActualResult: actualResult,
+      importedAttended: this.determineAttendance(statusRaw),
+      
       isAutoGenerated: !testId
     };
 
     return row;
   },
 
-  // Validate individual row data
+  normalizeStatus(statusRaw) {
+    if (!statusRaw || typeof statusRaw !== 'string') return '';
+    
+    const status = statusRaw.toLowerCase().trim();
+    
+
+    if (status === 'pass' || status === 'passed' || status === 'success' || status === 'ok') {
+      return 'Pass';
+    } else if (status === 'fail' || status === 'failed' || status === 'failure' || status === 'error') {
+      return 'Fail';
+    } else if (status === 'block' || status === 'blocked' || status === 'skip' || status === 'skipped') {
+      return 'Blocked';
+    }
+    return '';
+  },
+
+  determineAttendance(statusRaw) {
+    if (!statusRaw || typeof statusRaw !== 'string') return false;
+    
+    const status = statusRaw.toLowerCase().trim();
+
+    return ['pass', 'passed', 'fail', 'failed', 'failure', 'block', 'blocked', 'skip', 'skipped'].includes(status);
+  },
+
   validateRowData(row, rowNum) {
     const rules = this.validationRules;
     
@@ -509,7 +542,7 @@ const ExcelHandler = {
     return { isValid: true };
   },
 
-  // Enhanced sheet parsing with validation
+
   parseSheet(sheetName, ws) {
     this.showProgress(`Processing sheet: ${sheetName}...`);
     
@@ -534,10 +567,10 @@ const ExcelHandler = {
         try {
           let parsedRow = this.parseRow(r, colIdx, sheetName, rowNum);
           if (parsedRow) {
-            // Apply transformation rules
+
             parsedRow = this.applyTransformationRules(parsedRow);
             
-            // Validate row data
+
             const validation = this.validateRowData(parsedRow, rowNum);
             if (validation.isValid) {
               out.push(parsedRow);
@@ -559,9 +592,8 @@ const ExcelHandler = {
     }
   },
 
-  // **FIXED: Proper Test ID comparison for sorting**
   compareTestIds(idA, idB) {
-    // Extract the prefix and number parts
+
     const parseTestId = (id) => {
       const match = id.match(/^([A-Za-z-]*?)(\d+)(.*)$/);
       if (match) {
@@ -577,106 +609,112 @@ const ExcelHandler = {
     const parsedA = parseTestId(idA);
     const parsedB = parseTestId(idB);
 
-    // First, compare by prefix (TC-, EPM-, etc.)
     if (parsedA.prefix !== parsedB.prefix) {
       return parsedA.prefix.localeCompare(parsedB.prefix);
     }
 
-    // Then, compare by number (1, 2, 3... not 1, 10, 2, 20...)
     if (parsedA.number !== parsedB.number) {
       return parsedA.number - parsedB.number;
     }
 
-    // Finally, compare by suffix if needed
+
     return parsedA.suffix.localeCompare(parsedB.suffix);
   },
 
-  // **FIXED: Enhanced build process with proper sorting within modules**
+
   async buildFromWorkbook(wb, sheetNames) {
     const t0 = Utils.nowMs();
     this.clearMessages();
     this.initializeDefaultRules();
-    
     const state = window.AppState;
     state.rowsByGroup = {};
     state.flatRows = [];
     state.loadedCount = 0;
-
     let usedSheets = 0;
     let totalRows = 0;
-
     this.showProgress("Processing sheets...");
 
-    // Process all sheets
     for (let i = 0; i < sheetNames.length; i++) {
       const name = sheetNames[i];
       if (!wb.Sheets[name]) {
         this.addWarning(`Sheet "${name}" not found in workbook`);
         continue;
       }
-
       this.showProgress(`Processing sheet ${i + 1}/${sheetNames.length}: ${name}...`);
-      
       usedSheets++;
       const rows = this.parseSheet(name, wb.Sheets[name]);
-      
       rows.forEach(row => {
         state.flatRows.push(row);
         totalRows++;
       });
-
       await new Promise(resolve => setTimeout(resolve, 10));
     }
 
-    // **STEP 1: Sort ALL test cases by ID FIRST (before grouping)**
     this.showProgress("Sorting test cases by ID...");
     state.flatRows.sort((a, b) => {
       return this.compareTestIds(a.id, b.id);
     });
 
-    // **STEP 2: Detect and resolve duplicates after sorting**
     this.showProgress("Checking for duplicate IDs...");
     this.detectDuplicateIds(state.flatRows);
 
-    // **STEP 3: Group rows AFTER sorting (maintains order within groups)**
     this.showProgress("Grouping test cases by modules...");
     state.rowsByGroup = {};
-    
     state.flatRows.forEach(row => {
       const groupKey = (CONFIG.GROUP_BY === "module")
         ? (row.module || row.sheet || "General")
         : row.sheet;
-        
       if (!state.rowsByGroup[groupKey]) {
         state.rowsByGroup[groupKey] = [];
       }
       state.rowsByGroup[groupKey].push(row);
     });
-
     state.loadedCount = state.flatRows.length;
     state.loadMs = Math.max(1, Utils.nowMs() - t0);
-    
-    // Save import history
+
+    this.showProgress("Storing imported status and actual results...");
+    state.flatRows.forEach(row => {
+      if (row.importedStatus || row.importedActualResult) {
+        const stateData = {
+          status: row.importedStatus || '',
+          notes: row.importedActualResult || '', 
+          attended: row.importedAttended || false,
+          pending: !row.importedAttended,
+          images: [],
+          lastModified: new Date().toISOString(),
+          imported: true
+        };
+
+        if (window.Storage && typeof Storage.saveRowState === 'function') {
+          Storage.saveRowState(row.id, stateData);
+        }
+      }
+    });
+
     this.saveImportHistory(usedSheets, totalRows, state.loadMs);
-    
     this.showProgress("Building user interface...");
-    
-    // Clear and rebuild UI
+
     state.els.sectionsRoot.innerHTML = "";
     UIRenderer.renderAllSectionsIncremental();
-    
-    // Show results with enhanced statistics
+
     const statusMsg = this.buildEnhancedStatusMessage(usedSheets, totalRows, state.loadMs);
     state.els.loadInfo.innerHTML = statusMsg;
-    
     Summary.updateSummary();
     this.hideProgress();
-    
-    // Show any errors/warnings
+
     this.showMessages();
+
+    setTimeout(() => {
+      Storage.saveAppState();
+      console.log('✅ Auto-saved after Excel import');
+    }, 1000);
+
+    setTimeout(() => {
+      document.dispatchEvent(new CustomEvent('ExcelImportComplete'));
+    }, 500);
   },
 
-  // Import history tracking
+
   saveImportHistory(usedSheets, totalRows, loadMs) {
     const importRecord = {
       timestamp: new Date().toISOString(),
@@ -691,12 +729,12 @@ const ExcelHandler = {
     
     this.importHistory.unshift(importRecord);
     
-    // Keep only last 10 imports
+
     if (this.importHistory.length > 10) {
       this.importHistory = this.importHistory.slice(0, 10);
     }
     
-    // Save to localStorage
+
     try {
       localStorage.setItem('excel_import_history', JSON.stringify(this.importHistory));
     } catch(e) {
@@ -704,7 +742,7 @@ const ExcelHandler = {
     }
   },
 
-  // Load import history from localStorage
+
   loadImportHistory() {
     try {
       const saved = localStorage.getItem('excel_import_history');
@@ -717,7 +755,7 @@ const ExcelHandler = {
     }
   },
 
-  // Enhanced status message with more details
+
   buildEnhancedStatusMessage(usedSheets, totalRows, loadMs) {
     let msg = `✅ Loaded ${totalRows} tests from ${usedSheets} sheet(s) in ${loadMs.toFixed(0)}ms.`;
     
@@ -733,13 +771,13 @@ const ExcelHandler = {
       msg += ` <span style="color: red;">❌ ${this.errors.length} errors</span>`;
     }
     
-    // Add import history link
+
     msg += ` <a href="#" onclick="ExcelHandler.showImportHistory()" style="margin-left: 10px;">📊 View History</a>`;
     
     return msg;
   },
 
-  // Show import history modal
+
   showImportHistory() {
     const history = this.importHistory;
     if (history.length === 0) {
@@ -763,7 +801,7 @@ const ExcelHandler = {
     alert(content);
   },
 
-  // Export processed data for backup/analysis
+
   exportProcessedData() {
     const state = window.AppState;
     if (!state.flatRows || state.flatRows.length === 0) {
@@ -796,7 +834,7 @@ const ExcelHandler = {
     URL.revokeObjectURL(url);
   },
 
-  // Message management
+
   clearMessages() {
     this.errors = [];
     this.warnings = [];
@@ -823,7 +861,7 @@ const ExcelHandler = {
     }
   },
 
-  // Progress indication
+
   showProgress(message) {
     const els = window.AppState?.els;
     if (els?.loadInfo) {
@@ -838,15 +876,15 @@ const ExcelHandler = {
     }
   },
 
-  // Initialize Phase 2 features
+
   init() {
     this.loadImportHistory();
     this.initializeDefaultRules();
   }
 };
 
-// Initialize Excel Handler
+
 ExcelHandler.init();
 
-// Export enhanced handler
+
 window.ExcelHandler = ExcelHandler;
