@@ -1,24 +1,24 @@
-// Enhanced Summary Module with Performance Optimizations
+
 const Summary = {
   updateTimeout: null,
   isUpdating: false,
   
-  // Initialize summary
+
   init() {
     this.updateSummary();
     this.setupOptimizedAutoRefresh();
   },
 
   setupOptimizedAutoRefresh() {
-    // Reduced frequency auto-refresh
+
     setInterval(() => {
       if (!this.isUpdating && window.AppState && window.AppState.flatRows && window.AppState.flatRows.length > 0) {
         this.updateSummary();
       }
-    }, 20000); // 20 seconds instead of constant updates
+    }, 20000); 
   },
 
-  // Refresh summary function
+
   refreshSummary() {
     if (this.isUpdating) return;
     
@@ -37,7 +37,7 @@ const Summary = {
       refreshBtn.querySelector('span').textContent = 'Refreshing...';
     }
 
-    // Optimized async operation
+
     requestIdleCallback(() => {
       try {
         this.syncWithWorkspace();
@@ -65,7 +65,7 @@ const Summary = {
     });
   },
 
-  // Sync with workspace data
+
   syncWithWorkspace() {
     const state = window.AppState;
     
@@ -79,9 +79,9 @@ const Summary = {
     return true;
   },
 
-  // Optimized summary data calculation
+
   calculateSummaryDataOptimized(testCases) {
-    const moduleStats = new Map(); // Use Map for better performance
+    const moduleStats = new Map(); 
     
     // Single loop for better performance
     for (let i = 0; i < testCases.length; i++) {
@@ -124,7 +124,7 @@ const Summary = {
       }
     }
 
-    // Calculate rates efficiently
+   
     const results = Array.from(moduleStats.values());
     for (let i = 0; i < results.length; i++) {
       const stats = results[i];
@@ -136,7 +136,7 @@ const Summary = {
     return results;
   },
 
-  // Optimized summary update
+
   updateSummary() {
     if (this.updateTimeout) {
       clearTimeout(this.updateTimeout);
@@ -151,10 +151,10 @@ const Summary = {
 
       const summaryData = this.calculateSummaryDataOptimized(state.flatRows);
       this.renderSummaryTableOptimized(summaryData);
-    }, 300); // Debounce updates
+    }, 300); 
   },
 
-  // Show empty state
+
   showEmptyState() {
     const tbody = document.querySelector('#summaryTable tbody');
     if (!tbody) return;
@@ -170,7 +170,6 @@ const Summary = {
     `;
   },
 
-  // Optimized summary table rendering
   renderSummaryTableOptimized(summaryData) {
     const tbody = document.querySelector('#summaryTable tbody');
     if (!tbody) return;
@@ -180,10 +179,10 @@ const Summary = {
       return;
     }
 
-    // Use document fragment for better performance
+
     const fragment = document.createDocumentFragment();
 
-    // Render data rows efficiently
+
     summaryData.forEach(row => {
       const tr = document.createElement('tr');
       tr.className = 'summary-row optimized';
@@ -191,18 +190,18 @@ const Summary = {
       fragment.appendChild(tr);
     });
 
-    // Add enhanced totals row
+
     const totalRow = this.createOptimizedTotalRow(summaryData);
     fragment.appendChild(totalRow);
 
-    // Single DOM update
+
     requestAnimationFrame(() => {
       tbody.innerHTML = '';
       tbody.appendChild(fragment);
     });
   },
 
-  // Optimized row HTML generation
+
   renderSummaryRowHTMLOptimized(row) {
     const passRate = row.passRate;
     const completionRate = row.completionRate;
@@ -234,13 +233,13 @@ const Summary = {
     `;
   },
 
-  // Create optimized total row
+  
   createOptimizedTotalRow(summaryData) {
     const totals = {
       total: 0, passed: 0, failed: 0, blocked: 0, attended: 0, pending: 0
     };
 
-    // Single loop for totals calculation
+   
     for (let i = 0; i < summaryData.length; i++) {
       const row = summaryData[i];
       totals.total += row.total;
@@ -286,7 +285,7 @@ const Summary = {
     return totalRow;
   },
 
-  // Get pass rate class for styling
+
   getPassRateClass(passRate) {
     if (passRate >= 90) return 'excellent';
     if (passRate >= 80) return 'good';
@@ -295,7 +294,7 @@ const Summary = {
     return 'critical';
   },
 
-  // Get progress color based on rates
+
   getProgressColor(passRate, completionRate) {
     if (completionRate < 30) return '#95a5a6';
     if (passRate >= 90) return '#27ae60';
@@ -305,7 +304,7 @@ const Summary = {
     return '#e74c3c';
   },
 
-  // Get summary data for export
+ 
   getSummaryData() {
     const state = window.AppState;
     if (!state || !state.flatRows) return [];
@@ -314,10 +313,10 @@ const Summary = {
   }
 };
 
-// Export globally
+
 window.Summary = Summary;
 
-// Initialize when DOM is ready
+
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => Summary.init());
 } else {
