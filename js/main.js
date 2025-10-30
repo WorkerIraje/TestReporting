@@ -1,4 +1,4 @@
-// Complete Enhanced Main Application with Performance Optimizations
+
 const AppState = {
   workbook: null,
   sheets: [],
@@ -13,7 +13,7 @@ const AppState = {
   isUpdating: false
 };
 
-// Enhanced Sheet Picker
+
 const SheetPicker = {
   open(sheetNames) {
     console.log('Opening sheet picker with sheets:', sheetNames);
@@ -84,19 +84,307 @@ const SheetPicker = {
 const App = {
   syncTimeout: null,
 
+  restoreApplicationState() {
+    console.log('🔄 Starting application state restoration...');
+    try {
+
+      const savedState = Storage.loadAppState && Storage.loadAppState();
+      if (savedState && savedState.flatRows && savedState.flatRows.length > 0) {
+        // Restore core application state
+        AppState.flatRows = savedState.flatRows || [];
+        AppState.rowsByGroup = savedState.rowsByGroup || {};
+        AppState.selectedSheets = savedState.selectedSheets || [];
+        AppState.sheets = savedState.sheets || [];
+        AppState.loadedCount = savedState.loadedCount || 0;
+        AppState.currentProject = savedState.currentProject || null;
+        console.log('✅ Core state restored:', {
+          testCases: AppState.flatRows.length,
+          modules: Object.keys(AppState.rowsByGroup).length,
+          sheets: AppState.selectedSheets.length
+        });
+    
+        if (Storage.loadAllTestCaseStates) Storage.loadAllTestCaseStates();
+
+        if (Storage.loadHeaderFromStorage) Storage.loadHeaderFromStorage();
+  
+        this.rebuildWorkspaceUI();
+   
+        setTimeout(() => {
+          this.initializeStatusFromImportedData && this.initializeStatusFromImportedData();
+          this.updateAllComponentsOptimized && this.updateAllComponentsOptimized();
+        }, 500);
+        if (typeof showSuccessNotification === 'function') {
+          showSuccessNotification(`✅ Restored ${AppState.flatRows.length} test cases from previous session!`);
+        }
+        return true;
+      } else {
+        console.log('ℹ️ No previous session to restore');
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ State restoration failed:', error);
+      if (typeof showErrorNotification === 'function') {
+        showErrorNotification('Failed to restore previous session. Starting fresh.');
+      }
+      return false;
+    }
+  },
+
+
+  rebuildWorkspaceUI() {
+    console.log('🏗️ Rebuilding workspace UI...');
+    try {
+
+      if (!AppState.flatRows || AppState.flatRows.length === 0) {
+        console.log('No test cases to rebuild');
+        this.updateUIState(); 
+        return;
+      }
+   
+      this.groupTestCases();
+  
+      const loadInfo = Utils.$("#loadInfo");
+      if (loadInfo) {
+        loadInfo.innerHTML = `✅ Restored ${AppState.flatRows.length} test cases from previous session`;
+      }
+    
+      this.updateUIState();
+    
+      this.ensureOptimizedUIRender();
+      console.log('✅ Workspace UI rebuilt successfully');
+    } catch (error) {
+      console.error('❌ Failed to rebuild workspace UI:', error);
+      this.updateUIState(); 
+    }
+  },
+
+
+  ensureOptimizedUIRender() {
+    if (AppState.isUpdating) return;
+    AppState.isUpdating = true;
+    requestIdleCallback(() => {
+      try {
+        if (AppState.flatRows && AppState.flatRows.length > 0) {
+  
+          if (!AppState.rowsByGroup || Object.keys(AppState.rowsByGroup).length === 0) {
+            this.groupTestCases();
+          }
+          const sectionsRoot = document.getElementById('sectionsRoot');
+          if (sectionsRoot) {
+            sectionsRoot.innerHTML = '';
+          }
+    
+          if (window.UIRenderer && UIRenderer.renderAllSectionsIncremental) {
+            UIRenderer.renderAllSectionsIncremental();
+          }
+          this.updateUIState();
+    
+          setTimeout(() => {
+            this.updateAllComponentsOptimized && this.updateAllComponentsOptimized();
+ 
+            document.dispatchEvent(new CustomEvent('ExcelImportComplete'));
+          }, 300);
+        }
+      } finally {
+        AppState.isUpdating = false;
+      }
+    });
+  },
+
+
+  setupAutoSave() {
+
+    const debouncedSave = this.debounce(() => {
+      if (Storage.saveAppState) Storage.saveAppState();
+    }, 1000);
+
+    if (typeof MutationObserver !== 'undefined') {
+      const observer = new MutationObserver(debouncedSave);
+      const sectionsRoot = document.getElementById('sectionsRoot');
+      if (sectionsRoot) {
+        observer.observe(sectionsRoot, {
+          childList: true,
+          subtree: true,
+          attributes: true
+        });
+      }
+    }
+
+    window.addEventListener('beforeunload', () => {
+      console.log('🔄 Saving state before page unload...');
+      if (Storage.saveAppState) Storage.saveAppState();
+    });
+
+    setInterval(() => {
+      if (AppState.flatRows && AppState.flatRows.length > 0 && Storage.saveAppState) {
+        Storage.saveAppState();
+      }
+    }, 30000);
+
+    window.addEventListener('blur', () => {
+      if (Storage.saveAppState) Storage.saveAppState();
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && Storage.saveAppState) {
+        Storage.saveAppState();
+      }
+    });
+    console.log('✅ Auto-save system initialized');
+  },
+
   init() {
+    console.log('🚀 Initializing Iraje Test Management Portal...');
     this.bindDOMElements();
     this.setupOptimizedEventHandlers();
     this.setupLogo();
     this.setupOptimizedAutoSync();
+    this.initializeStatusHandler();
+    this.setupAutoSave();
     Navigation.init();
     Dashboard.init();
-    Storage.loadHeaderFromStorage();
-    this.updateUIState();
-    
-    // Initialize performance optimizations
+
+    setTimeout(() => {
+      const restored = this.restoreApplicationState();
+      if (!restored) {
+
+        if (Storage.loadHeaderFromStorage) Storage.loadHeaderFromStorage();
+        this.updateUIState(); 
+      } else {
+
+        const currentPage = Navigation?.getCurrentPage?.() || 'workspace';
+        if (currentPage === 'workspace') {
+          console.log('🎯 Focusing on workspace restoration...');
+          setTimeout(() => {
+            this.rebuildWorkspaceUI();
+          }, 100);
+        }
+      }
+    }, 100);
+
     if (window.PerformanceOptimizer) {
       PerformanceOptimizer.init();
+    }
+    console.log('✅ Application initialized successfully');
+  },
+
+
+  initializeStatusHandler() {
+    console.log('🔧 Initializing status and attendance handler...');
+    
+
+    document.addEventListener('change', (event) => {
+      if (event.target && event.target.classList.contains('status-selector')) {
+        this.handleStatusChange(event.target);
+      }
+    });
+    
+
+    document.addEventListener('ExcelImportComplete', () => {
+      console.log('📊 Excel import completed, initializing status from imported data...');
+      setTimeout(() => {
+        this.initializeStatusFromImportedData();
+      }, 1000);
+    });
+    
+    console.log('✅ Status handler initialized');
+  },
+
+
+  handleStatusChange(statusSelect) {
+    const selectedStatus = statusSelect.value;
+    
+
+    const testCaseItem = statusSelect.closest('.test-case-item');
+    if (!testCaseItem) return;
+    
+    const testId = testCaseItem.id.replace('test-', ''); 
+    console.log(`🔄 Status changed for ${testId}: ${selectedStatus}`);
+    
+  
+    const attendedCheckbox = document.getElementById(`attended_${testId}`);
+    const pendingCheckbox = document.getElementById(`pending_${testId}`);
+    
+    if (attendedCheckbox && pendingCheckbox) {
+ 
+      if (selectedStatus === 'Pass' || selectedStatus === 'Fail' || selectedStatus === 'Blocked') {
+      
+        attendedCheckbox.checked = true;
+        pendingCheckbox.checked = false;
+        console.log(`✅ ${testId} marked as attended (status: ${selectedStatus})`);
+      } else {
+  
+        attendedCheckbox.checked = false;
+        pendingCheckbox.checked = true;
+        console.log(`⏳ ${testId} marked as pending (no status)`);
+      }
+      
+  
+      attendedCheckbox.dispatchEvent(new Event('change'));
+    }
+    
+
+    this.updateTestCaseStatus(testId, selectedStatus);
+  },
+
+
+  initializeStatusFromImportedData() {
+    console.log('📋 Initializing status from imported Excel data...');
+    
+    const testCases = document.querySelectorAll('.test-case-item');
+    let updatedCount = 0;
+    
+    testCases.forEach(testCase => {
+      const testId = testCase.id.replace('test-', '');
+      const saved = window.Storage?.loadRowState(testId) || {};
+      
+      // Debug log for each test case
+      console.log(`🔍 Checking ${testId}:`, {
+        savedStatus: saved.status,
+        savedNotes: saved.notes,
+        savedAttended: saved.attended,
+        savedPending: saved.pending
+      });
+      
+
+      const statusSelect = testCase.querySelector('.status-selector');
+      if (statusSelect && saved.status) {
+        console.log(`📝 Setting status for ${testId}: ${saved.status}`);
+        statusSelect.value = saved.status;
+        updatedCount++;
+        
+
+        const statusClass = `status-${saved.status.toLowerCase()}`;
+        testCase.classList.remove('status-pass', 'status-fail', 'status-blocked');
+        testCase.classList.add(statusClass);
+      }
+      
+
+      const notesTextarea = testCase.querySelector('.notes-field');
+      if (notesTextarea && saved.notes) {
+        notesTextarea.value = saved.notes;
+        console.log(`📄 Notes populated for ${testId}: ${saved.notes.substring(0, 50)}...`);
+      }
+      
+
+      const attendedCheckbox = document.getElementById(`attended_${testId}`);
+      const pendingCheckbox = document.getElementById(`pending_${testId}`);
+      
+      if (attendedCheckbox && pendingCheckbox) {
+        const isAttended = saved.attended || ['Pass', 'Fail', 'Blocked'].includes(saved.status);
+        const isPending = saved.pending || !isAttended;
+        
+        attendedCheckbox.checked = isAttended;
+        pendingCheckbox.checked = isPending;
+        
+        console.log(`🎯 Attendance updated for ${testId}: attended=${isAttended}, pending=${isPending}`);
+      }
+    });
+    
+    console.log(`✅ Status initialization completed! Updated ${updatedCount} test cases.`);
+    
+    if (updatedCount > 0) {
+      showSuccessNotification(`Imported status and attendance for ${updatedCount} test cases!`);
     }
   },
 
@@ -134,7 +422,7 @@ const App = {
       els.btnImport.addEventListener("click", this.handleImport.bind(this));
     }
 
-    // Enhanced save project button
+
     const saveProjectBtn = Utils.$("#saveProjectBtn");
     if (saveProjectBtn) {
       saveProjectBtn.addEventListener('click', this.throttle(() => {
@@ -147,7 +435,7 @@ const App = {
       downloadTemplateBtn.addEventListener('click', this.downloadTemplate.bind(this));
     }
 
-    // Optimized header inputs with debouncing
+  
     if (els.reportDate) {
       els.reportDate.addEventListener('input', this.debounce(() => {
         Storage.saveHeader();
@@ -201,14 +489,14 @@ const App = {
   },
 
   setupOptimizedAutoSync() {
-    // Reduced frequency auto-sync
+
     setInterval(() => {
       if (AppState.autoSync && !AppState.isUpdating) {
         this.syncAllTabsOptimized();
       }
-    }, 10000); // Increased to 10 seconds
+    }, 10000); 
 
-    // Optimized mutation observer
+
     if (typeof MutationObserver !== 'undefined') {
       const observer = new MutationObserver(this.debounce(() => {
         if (AppState.autoSync && !AppState.isUpdating) {
@@ -218,7 +506,7 @@ const App = {
       
       observer.observe(document.body, {
         childList: true,
-        subtree: false, // Reduced scope
+        subtree: false, 
         attributes: false
       });
     }
@@ -273,7 +561,7 @@ const App = {
 
       const filename = f.name.replace(/\.[^/.]+$/, "");
       
-      // Check for existing project using ProjectManager
+
       if (window.ProjectManager) {
         ProjectManager.checkExistingProject(filename, (choice) => {
           if (choice === 'resume') {
@@ -311,6 +599,11 @@ const App = {
         if (loadInfo) {
           loadInfo.innerHTML = `✅ Loaded ${AppState.flatRows.length} test cases from saved project.`;
         }
+        
+  
+        setTimeout(() => {
+          this.initializeStatusFromImportedData();
+        }, 1000);
         
         this.triggerOptimizedSync();
       } else {
@@ -409,33 +702,6 @@ const App = {
     });
   },
 
-  ensureOptimizedUIRender() {
-    if (AppState.isUpdating) return;
-    AppState.isUpdating = true;
-
-    requestIdleCallback(() => {
-      try {
-        if (AppState.flatRows && AppState.flatRows.length > 0) {
-          this.groupTestCases();
-          
-          const sectionsRoot = document.getElementById('sectionsRoot');
-          if (sectionsRoot) {
-            sectionsRoot.innerHTML = '';
-          }
-          
-          if (window.UIRenderer && UIRenderer.renderAllSectionsIncremental) {
-            UIRenderer.renderAllSectionsIncremental();
-          }
-          
-          this.updateUIState();
-          this.updateAllComponentsOptimized();
-        }
-      } finally {
-        AppState.isUpdating = false;
-      }
-    });
-  },
-
   updateAllComponentsOptimized() {
     const updates = [];
     
@@ -527,6 +793,30 @@ const App = {
     });
   },
 
+  updateTestCaseStatus(testId, status) {
+    const currentState = window.Storage?.loadRowState(testId) || {};
+    currentState.status = status;
+    currentState.lastModified = new Date().toISOString();
+    
+   
+    if (status && ['Pass', 'Fail', 'Blocked'].includes(status)) {
+      currentState.attended = true;
+      currentState.pending = false;
+    } else {
+      currentState.attended = false;
+      currentState.pending = true;
+    }
+    
+    window.Storage?.saveRowState(testId, currentState);
+    
+    
+    if (status && status !== 'Not Executed') {
+      this.markTestCaseAttended(testId);
+    }
+    
+    console.log(`💾 Status updated for ${testId}: ${status}, attended: ${currentState.attended}`);
+  },
+
   cleanup() {
     if (this.syncTimeout) {
       clearTimeout(this.syncTimeout);
@@ -535,7 +825,125 @@ const App = {
   }
 };
 
-// Optimized utility functions
+const RecoverySystem = {
+
+  checkForRecoveryData() {
+    const recoveryData = localStorage.getItem('irajeRecoveryData');
+    if (recoveryData) {
+      this.showRecoveryModal(JSON.parse(recoveryData));
+    }
+  },
+
+  showRecoveryModal(recoveryData) {
+    const modal = document.createElement('div');
+    modal.className = 'recovery-modal-overlay';
+    modal.innerHTML = `
+      <div class="recovery-modal">
+        <div class="modal-header">
+          <h3>🔄 Session Recovery Available</h3>
+        </div>
+        <div class="modal-body">
+          <p>We found unsaved work from your previous session:</p>
+          <ul>
+            <li><strong>${recoveryData.testCaseCount || 0}</strong> test cases</li>
+            <li><strong>${recoveryData.moduleCount || 0}</strong> modules</li>
+            <li>Last saved: <strong>${new Date(recoveryData.timestamp).toLocaleString()}</strong></li>
+          </ul>
+          <p>Would you like to restore your previous work?</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" onclick="RecoverySystem.discardRecovery()">
+            Start Fresh
+          </button>
+          <button class="btn-primary" onclick="RecoverySystem.restoreFromRecovery()">
+            Restore Previous Session
+          </button>
+        </div>
+      </div>
+      <style>
+        .recovery-modal-overlay {
+          position: fixed;
+          top: 0; left: 0; width: 100vw; height: 100vh;
+          background: rgba(0,0,0,0.7);
+          display: flex; align-items: center; justify-content: center;
+          z-index: 99999;
+        }
+        .recovery-modal {
+          background: #fff;
+          border-radius: 10px;
+          max-width: 400px;
+          width: 90vw;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+          padding: 0;
+        }
+        .recovery-modal .modal-header {
+          background: #667eea;
+          color: #fff;
+          padding: 1.2rem 1.5rem;
+          border-radius: 10px 10px 0 0;
+        }
+        .recovery-modal .modal-body {
+          padding: 1.5rem;
+        }
+        .recovery-modal .modal-footer {
+          display: flex;
+          justify-content: flex-end;
+          gap: 1rem;
+          padding: 1rem 1.5rem 1.5rem;
+        }
+        .recovery-modal .btn-primary {
+          background: #28a745;
+          color: #fff;
+          border: none;
+          border-radius: 5px;
+          padding: 0.5rem 1.2rem;
+          font-weight: 600;
+          cursor: pointer;
+        }
+        .recovery-modal .btn-secondary {
+          background: #6c757d;
+          color: #fff;
+          border: none;
+          border-radius: 5px;
+          padding: 0.5rem 1.2rem;
+          font-weight: 600;
+          cursor: pointer;
+        }
+        .recovery-modal .btn-primary:hover {
+          background: #218838;
+        }
+        .recovery-modal .btn-secondary:hover {
+          background: #5a6268;
+        }
+      </style>
+    `;
+    document.body.appendChild(modal);
+  },
+
+  restoreFromRecovery() {
+    App.restoreApplicationState();
+    this.closeRecoveryModal();
+    localStorage.removeItem('irajeRecoveryData');
+  },
+
+  discardRecovery() {
+    localStorage.removeItem('irajeRecoveryData');
+    localStorage.removeItem('irajeAppState');
+    localStorage.removeItem('irajeAppState_backup');
+    this.closeRecoveryModal();
+  },
+
+  closeRecoveryModal() {
+    const modal = document.querySelector('.recovery-modal-overlay');
+    if (modal) {
+      modal.remove();
+    }
+  }
+};
+
+window.RecoverySystem = RecoverySystem;
+
+
 function clearFileSelection() {
   const fileInput = Utils.$("#excelFile");
   const clearBtn = Utils.$("#clearFileBtn");
@@ -681,20 +1089,14 @@ function showLoadingState(loading) {
   }
 }
 
-// Enhanced test case interaction functions
+
 function updateTestCaseStatus(testId, status) {
-  const currentState = window.Storage?.loadRowState(testId) || {};
-  currentState.status = status;
-  currentState.lastModified = new Date().toISOString();
+
+  App.updateTestCaseStatus(testId, status);
   
   if (status && status !== 'Not Executed') {
-    currentState.attended = true;
+    showSuccessNotification(`Test case ${testId} marked as ${status}`);
   }
-  
-  window.Storage?.saveRowState(testId, currentState);
-  App.markTestCaseAttended(testId);
-  
-  showSuccessNotification(`Test case ${testId} marked as ${status}`);
 }
 
 function updateTestCaseNotes(testId, notes) {
@@ -704,6 +1106,22 @@ function updateTestCaseNotes(testId, notes) {
   
   if (notes && notes.trim()) {
     currentState.attended = true;
+    currentState.pending = false;
+  }
+  
+  window.Storage?.saveRowState(testId, currentState);
+  App.markTestCaseAttended(testId);
+}
+
+
+function updateTestCaseActualResults(testId, actualResults) {
+  const currentState = window.Storage?.loadRowState(testId) || {};
+  currentState.notes = actualResults; // Map actual results to notes field
+  currentState.lastModified = new Date().toISOString();
+  
+  if (actualResults && actualResults.trim()) {
+    currentState.attended = true;
+    currentState.pending = false;
   }
   
   window.Storage?.saveRowState(testId, currentState);
@@ -719,6 +1137,7 @@ function addScreenshotToTestCase(testId, imageData) {
   currentState.images.push(imageData);
   currentState.lastModified = new Date().toISOString();
   currentState.attended = true;
+  currentState.pending = false;
   
   window.Storage?.saveRowState(testId, currentState);
   App.markTestCaseAttended(testId);
@@ -738,7 +1157,13 @@ function toggleTestCaseAttendance(testId, attended) {
   App.triggerOptimizedSync();
 }
 
-// Global functions
+
+function manualInitializeStatus() {
+  console.log('🔧 Manually initializing status...');
+  App.initializeStatusFromImportedData();
+}
+
+
 window.AppState = AppState;
 window.SheetPicker = SheetPicker;
 window.App = App;
@@ -755,10 +1180,12 @@ window.confirmDeleteSheet = confirmDeleteSheet;
 window.exportSummary = exportSummary;
 window.updateTestCaseStatus = updateTestCaseStatus;
 window.updateTestCaseNotes = updateTestCaseNotes;
+window.updateTestCaseActualResults = updateTestCaseActualResults;
 window.addScreenshotToTestCase = addScreenshotToTestCase;
 window.toggleTestCaseAttendance = toggleTestCaseAttendance;
+window.manualInitializeStatus = manualInitializeStatus; 
 
-// Initialize app
+
 window.addEventListener("DOMContentLoaded", () => {
   try {
     App.init();
@@ -769,4 +1196,3 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   }
 });
-
