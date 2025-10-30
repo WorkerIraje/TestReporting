@@ -1,39 +1,39 @@
-// Enhanced Report Generator with Fixed Image Rendering for PDF and HTML
+
 const ReportGenerator = {
   currentReportType: null,
   reportHistory: [],
   previewConfig: null,
   previewTestCases: null,
 
-  // Initialize report system
+
   init() {
     this.loadReportHistory();
     this.updateReportCounts();
     this.createReportModal();
   },
 
-  // Update report counts
+
   updateReportCounts() {
     const state = window.AppState;
     if (!state || !state.flatRows) return;
 
     const stats = this.calculateReportStats();
     
-    // Update defect stats
+   
     const defectEl = document.getElementById('defectStats');
     if (defectEl) {
       const statNumber = defectEl.querySelector('.stat-number');
       if (statNumber) statNumber.textContent = stats.failed;
     }
 
-    // Update full report stats
+
     const fullEl = document.getElementById('fullStats');
     if (fullEl) {
       const statNumber = fullEl.querySelector('.stat-number');
       if (statNumber) statNumber.textContent = stats.total;
     }
 
-    // Update security stats
+
     const securityEl = document.getElementById('securityStats');
     if (securityEl) {
       const statNumber = securityEl.querySelector('.stat-number');
@@ -41,7 +41,7 @@ const ReportGenerator = {
     }
   },
 
-  // Calculate statistics for different report types
+
   calculateReportStats() {
     const state = window.AppState;
     let failed = 0, total = 0, security = 0;
@@ -60,7 +60,7 @@ const ReportGenerator = {
     return { failed, total, security };
   },
 
-  // Check if test case is security-related
+
   isSecurityTest(row) {
     const securityKeywords = [
       'security', 'authentication', 'authorization', 'login', 
@@ -72,7 +72,7 @@ const ReportGenerator = {
     return securityKeywords.some(keyword => text.includes(keyword));
   },
 
-  // Refresh reports
+
   refreshReports() {
     console.log('🔄 Refreshing Reports...');
     
@@ -114,7 +114,7 @@ const ReportGenerator = {
     }, 1000);
   },
 
-  // Sync with workspace data
+ 
   syncWithWorkspace() {
     const state = window.AppState;
     
@@ -130,12 +130,12 @@ const ReportGenerator = {
     return true;
   },
 
-  // MAIN ENTRY POINTS
+
   generateDefectReport() { this.generateReport('defect'); },
   generateFullReport() { this.generateReport('full'); },
   generateSecurityReport() { this.generateReport('security'); },
 
-  // Generate report
+  
   generateReport(reportType) {
     const state = window.AppState;
     if (!state.flatRows || state.flatRows.length === 0) {
@@ -147,7 +147,7 @@ const ReportGenerator = {
     this.showReportModal(reportType);
   },
 
-  // Create enhanced report modal
+  
   createReportModal() {
     if (document.getElementById('enhancedReportModal')) return;
 
@@ -276,7 +276,6 @@ const ReportGenerator = {
     this.addModalStyles();
   },
 
-  // Add modal styles
   addModalStyles() {
     const style = document.createElement('style');
     style.innerHTML = `
@@ -373,7 +372,7 @@ const ReportGenerator = {
     document.head.appendChild(style);
   },
 
-  // Setup date validation
+
   setupDateValidation() {
     const dateInput = document.getElementById('reportDateInput');
     if (!dateInput) return;
@@ -390,7 +389,7 @@ const ReportGenerator = {
     });
   },
 
-  // Show report modal
+
   showReportModal(reportType) {
     const modal = document.getElementById('enhancedReportModal');
     const title = document.getElementById('enhancedReportTitle');
@@ -406,7 +405,7 @@ const ReportGenerator = {
     modal.style.display = 'flex';
   },
 
-  // Pre-fill form
+
   prefillReportForm() {
     const today = new Date();
     const formattedDate = `${today.getDate().toString().padStart(2,'0')}/${(today.getMonth()+1).toString().padStart(2,'0')}/${today.getFullYear()}`;
@@ -419,7 +418,7 @@ const ReportGenerator = {
     }
   },
 
-  // Close modal
+
   closeReportModal() {
     const modal = document.getElementById('enhancedReportModal');
     if (modal) {
@@ -428,22 +427,21 @@ const ReportGenerator = {
     this.currentReportType = null;
   },
 
-  // Generate enhanced report with preview
   generateEnhancedReport() {
-    // Get selected format
+    
     const formatRadios = document.querySelectorAll('input[name="reportFormat"]');
     let selectedFormat = 'pdf';
     formatRadios.forEach(radio => {
       if (radio.checked) selectedFormat = radio.value;
     });
 
-    // Block DOCX format
+    
     if (selectedFormat === 'docx') {
       alert('DOCX format is coming soon! Please select PDF or HTML format.');
       return;
     }
 
-    // Collect form data
+
     const config = {
       type: this.currentReportType,
       format: selectedFormat,
@@ -462,13 +460,12 @@ const ReportGenerator = {
       timestamp: new Date().toISOString()
     };
 
-    // Validate required fields
     if (!config.title || !config.tester || !config.date || !config.build) {
       alert('Please fill in all required fields.');
       return;
     }
 
-    // Validate date format
+
     const datePattern = /^\d{2}\/\d{2}\/\d{4}$/;
     if (!datePattern.test(config.date)) {
       alert('Please enter date in DD/MM/YYYY format');
@@ -479,7 +476,6 @@ const ReportGenerator = {
     this.showReportPreview(config);
   },
 
-  // Show report preview before download
   showReportPreview(config) {
     try {
       const testCases = this.getFilteredTestCases(config.type);
@@ -498,9 +494,9 @@ const ReportGenerator = {
     }
   },
 
-  // Create preview modal
+
   createPreviewModal(reportHTML, config, testCases) {
-    // Remove existing preview modal
+
     const existingModal = document.getElementById('reportPreviewModal');
     if (existingModal) {
       existingModal.remove();
@@ -539,7 +535,7 @@ const ReportGenerator = {
 
     document.body.insertAdjacentHTML('beforeend', modalHTML);
 
-    // Load content into iframe
+
     const iframe = document.getElementById('reportPreviewFrame');
     if (iframe) {
       const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
@@ -548,12 +544,11 @@ const ReportGenerator = {
       iframeDoc.close();
     }
 
-    // Store config for download
     this.previewConfig = config;
     this.previewTestCases = testCases;
   },
 
-  // Close preview modal
+ 
   closePreview() {
     const modal = document.getElementById('reportPreviewModal');
     if (modal) {
@@ -563,7 +558,7 @@ const ReportGenerator = {
     this.previewTestCases = null;
   },
 
-  // Download from preview
+
   downloadFromPreview() {
     if (this.previewConfig && this.previewTestCases) {
       this.createMultiFormatReport(this.previewConfig);
@@ -572,12 +567,12 @@ const ReportGenerator = {
     }
   },
 
-  // Create report in selected format
+
   createMultiFormatReport(config) {
     try {
       const testCases = this.getFilteredTestCases(config.type);
       
-      // Generate report based on format
+      
       switch (config.format) {
         case 'pdf':
           this.generatePDFReport(config, testCases);
@@ -595,13 +590,13 @@ const ReportGenerator = {
     }
   },
 
-  // ENHANCED: Generate PDF report with advanced image handling
+
   generatePDFReport(config, testCases) {
     console.log('🔄 Generating PDF report with enhanced image support...');
     
     const reportHTML = this.buildReportHTML(config, testCases);
     
-    // Create optimized temporary container
+
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = reportHTML;
     tempDiv.style.cssText = `
@@ -617,26 +612,26 @@ const ReportGenerator = {
     
     document.body.appendChild(tempDiv);
 
-    // CRITICAL: Preload and optimize all images
+   
     const images = tempDiv.querySelectorAll('img');
     console.log(`📸 Found ${images.length} images to process for PDF`);
 
-    // Convert images to optimized format
+  
     const imagePromises = Array.from(images).map((img, index) => {
       return new Promise((resolve) => {
-        // Create a canvas to optimize the image
+  
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         
         const processImage = () => {
           try {
-            // Set optimal size for PDF
+            
             const maxWidth = 500;
             const maxHeight = 400;
             
             let { width, height } = img;
             
-            // Calculate aspect ratio
+      
             if (width > maxWidth || height > maxHeight) {
               const ratio = Math.min(maxWidth / width, maxHeight / height);
               width = width * ratio;
@@ -646,10 +641,10 @@ const ReportGenerator = {
             canvas.width = width;
             canvas.height = height;
             
-            // Draw optimized image
+  
             ctx.drawImage(img, 0, 0, width, height);
             
-            // Convert to optimized data URL
+ 
             const optimizedDataURL = canvas.toDataURL('image/jpeg', 0.85);
             img.src = optimizedDataURL;
             
@@ -658,7 +653,7 @@ const ReportGenerator = {
             
           } catch (error) {
             console.warn(`⚠️ Failed to optimize image ${index + 1}:`, error);
-            resolve(); // Continue even if optimization fails
+            resolve(); 
           }
         };
 
@@ -671,7 +666,7 @@ const ReportGenerator = {
             resolve();
           };
           
-          // Timeout fallback
+
           setTimeout(() => {
             console.warn(`⏰ Image ${index + 1} load timeout`);
             resolve();
@@ -680,7 +675,7 @@ const ReportGenerator = {
       });
     });
 
-    // Generate PDF after all images are processed
+ 
     Promise.all(imagePromises)
       .then(() => {
         console.log('🎨 All images processed, generating PDF...');
@@ -693,18 +688,18 @@ const ReportGenerator = {
             quality: 0.92
           },
           html2canvas: { 
-            scale: 1.5, // Balanced scale for quality vs performance
+            scale: 1.5, 
             useCORS: true,
             allowTaint: true,
             scrollX: 0,
             scrollY: 0,
-            width: 794, // A4 width in pixels
-            height: null, // Let it calculate height
+            width: 794, 
+            height: null, 
             backgroundColor: '#ffffff',
-            logging: false, // Disable logging for better performance
-            imageTimeout: 15000, // 15 second timeout for images
+            logging: false, 
+            imageTimeout: 15000, 
             removeContainer: true,
-            foreignObjectRendering: false, // Better compatibility
+            foreignObjectRendering: false, 
           },
           jsPDF: { 
             unit: 'mm', 
@@ -737,7 +732,7 @@ const ReportGenerator = {
       });
   },
 
-  // ENHANCED: Generate HTML report with embedded images
+  
   generateHTMLReport(config, testCases) {
     console.log('🔄 Generating HTML report with embedded images...');
     
@@ -758,7 +753,7 @@ const ReportGenerator = {
     showSuccessNotification('HTML report with embedded images generated successfully!');
   },
 
-  // Build enhanced HTML report with better styling and embedded images
+
   buildEnhancedHTMLReport(config, testCases) {
     const totalPages = testCases.length + 1;
     
@@ -839,7 +834,7 @@ const ReportGenerator = {
 </html>`;
   },
 
-  // Get enhanced CSS for HTML reports
+
   getEnhancedHTMLReportCSS(config) {
     return `
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -1160,7 +1155,7 @@ const ReportGenerator = {
     </div>`;
   },
 
-  // Generate enhanced HTML test case page
+
   generateEnhancedHTMLTestCasePage(testCase, pageNum, totalPages, config) {
     const statusClass = testCase.status ? `status-${testCase.status.toLowerCase().replace(/\s+/g, '-')}` : 'status-not-executed';
     
@@ -1199,7 +1194,7 @@ const ReportGenerator = {
       </div>`;
     }
 
-    // ENHANCED: Screenshots with grid layout and zoom functionality
+
     if (config.options.includeScreenshots && testCase.images && testCase.images.length > 0) {
       html += `
       <div class="screenshots-section">
@@ -1242,7 +1237,7 @@ const ReportGenerator = {
     return html;
   },
 
-  // Get filtered test cases
+
   getFilteredTestCases(reportType) {
     const state = window.AppState;
     let testCases = [...state.flatRows];
@@ -1275,7 +1270,7 @@ const ReportGenerator = {
     return testCases;
   },
 
-  // Build report HTML (for PDF)
+
   buildReportHTML(config, testCases) {
     const totalPages = testCases.length + 1;
     
@@ -1295,7 +1290,7 @@ const ReportGenerator = {
 </html>`;
   },
 
-  // Get report CSS (for PDF)
+
   getReportCSS(config) {
     return `
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -1422,7 +1417,6 @@ const ReportGenerator = {
   `;
   },
 
-  // Generate cover page (for PDF)
   generateCoverPage(config, testCaseCount, totalPages) {
     return `
     <div class="cover-page">
