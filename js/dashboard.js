@@ -1,12 +1,11 @@
-// Enhanced Dashboard Module with Better UI
+
 const Dashboard = {
   
-  // Initialize dashboard
   init() {
     this.updateDashboard();
   },
 
-  // Refresh dashboard data
+
   refreshStatus() {
     console.log('🔄 Refreshing Dashboard...');
     
@@ -14,7 +13,7 @@ const Dashboard = {
     const refreshIcon = document.getElementById('refreshIcon');
     
     if (refreshBtn && refreshIcon) {
-      // Show loading state
+
       refreshBtn.classList.add('refreshing');
       refreshBtn.disabled = true;
       refreshIcon.classList.add('fa-spin');
@@ -23,7 +22,7 @@ const Dashboard = {
       refreshBtn.querySelector('span').textContent = 'Refreshing...';
     }
 
-    // Simulate async operation
+
     setTimeout(() => {
       try {
         this.updateDashboard();
@@ -40,7 +39,7 @@ const Dashboard = {
           showErrorNotification('Failed to refresh dashboard. Please try again.');
         }
       } finally {
-        // Reset button state
+     
         if (refreshBtn && refreshIcon) {
           refreshBtn.classList.remove('refreshing');
           refreshBtn.disabled = false;
@@ -51,7 +50,7 @@ const Dashboard = {
     }, 1000);
   },
 
-  // Update dashboard with current data
+
   updateDashboard() {
     const state = window.AppState;
     if (!state || !state.flatRows || state.flatRows.length === 0) {
@@ -59,16 +58,16 @@ const Dashboard = {
       return;
     }
 
-    // Calculate overall statistics
+
     const overallStats = this.calculateOverallStats(state.flatRows);
     this.updateOverviewCards(overallStats);
 
-    // Calculate module-wise statistics
+
     const moduleStats = this.calculateModuleStats(state.flatRows);
     this.renderModuleDashboard(moduleStats);
   },
 
-  // Calculate overall statistics
+
   calculateOverallStats(testCases) {
     const stats = {
       total: testCases.length,
@@ -108,7 +107,7 @@ const Dashboard = {
     return stats;
   },
 
-  // Calculate module-wise statistics
+
   calculateModuleStats(testCases) {
     const moduleStats = {};
     
@@ -156,7 +155,7 @@ const Dashboard = {
       }
     });
 
-    // Calculate rates
+
     Object.values(moduleStats).forEach(stats => {
       const executed = stats.passed + stats.failed + stats.blocked;
       stats.passRate = executed > 0 ? Math.round((stats.passed / executed) * 100) : 0;
@@ -166,7 +165,7 @@ const Dashboard = {
     return Object.values(moduleStats);
   },
 
-  // Update overview cards
+
   updateOverviewCards(stats) {
     const totalCard = document.getElementById('totalTestsCard');
     const passedCard = document.getElementById('passedTestsCard');
@@ -179,7 +178,7 @@ const Dashboard = {
     if (blockedCard) this.animateNumber(blockedCard, stats.blocked);
   },
 
-  // Animate number changes
+
   animateNumber(element, targetValue) {
     const currentValue = parseInt(element.textContent) || 0;
     const increment = targetValue > currentValue ? 1 : -1;
@@ -199,7 +198,7 @@ const Dashboard = {
     }, duration / steps);
   },
 
-  // Render module dashboard
+
   renderModuleDashboard(moduleStats) {
     const container = document.getElementById('statusDashboard');
     if (!container) return;
@@ -218,7 +217,7 @@ const Dashboard = {
     container.innerHTML = html;
   },
 
-  // Render individual module card
+
   renderModuleCard(module) {
     const statusColor = this.getModuleStatusColor(module.passRate, module.completionRate);
     
@@ -286,7 +285,7 @@ const Dashboard = {
     `;
   },
 
-  // Get module status color based on pass rate and completion
+
   getModuleStatusColor(passRate, completionRate) {
     if (completionRate < 50) {
       return '#95a5a6'; // Gray - Low completion
@@ -299,12 +298,12 @@ const Dashboard = {
     }
   },
 
-  // Show empty state
+
   showEmptyState() {
     const container = document.getElementById('statusDashboard');
     if (!container) return;
 
-    // Reset overview cards
+
     this.updateOverviewCards({ total: 0, passed: 0, failed: 0, blocked: 0 });
 
     container.innerHTML = `
@@ -323,10 +322,10 @@ const Dashboard = {
   }
 };
 
-// Export globally
+
 window.Dashboard = Dashboard;
 
-// Initialize when DOM is ready
+
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => Dashboard.init());
 } else {
