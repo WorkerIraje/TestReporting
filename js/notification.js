@@ -1,4 +1,4 @@
-// Notifications System
+
 function showSuccessNotification(message) {
     showNotification(message, 'success');
   }
@@ -15,7 +15,7 @@ function showSuccessNotification(message) {
       messageElement.textContent = message;
       notification.classList.add('show');
       
-      // Auto hide after 5 seconds
+
       setTimeout(() => {
         closeNotification(type);
       }, 5000);
@@ -29,7 +29,7 @@ function showSuccessNotification(message) {
     }
   }
   
-  // Global exports
+
   window.showSuccessNotification = showSuccessNotification;
   window.showErrorNotification = showErrorNotification;
   window.showNotification = showNotification;
