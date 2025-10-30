@@ -1,4 +1,4 @@
-// Export functionality
+
 const ExportManager = {
     async exportDocx() {
         if (!window.docx) {
@@ -11,7 +11,7 @@ const ExportManager = {
         const state = window.AppState;
         const els = window.DOMElements;
 
-        // Build document
+
         const headerInfo = {
             date: els.reportDate?.value || "",
             tester: els.testerName?.value || "",
@@ -20,7 +20,7 @@ const ExportManager = {
 
         const coverChildren = [];
 
-        // Optional logo
+
         if (CONFIG.LOGO_DATA_URL && !CONFIG.LOGO_DATA_URL.startsWith('data:')) {
             try {
                 const response = await fetch(CONFIG.LOGO_DATA_URL);
@@ -42,7 +42,7 @@ const ExportManager = {
         );
         doc.addSection({ children: coverChildren });
 
-        // Summary section
+
         const summary = SummaryManager.computeSummary();
         const summaryRows = [
             new TableRow({
@@ -78,7 +78,7 @@ const ExportManager = {
             ]
         });
 
-        // Detail sections per group
+
         const keys = Object.keys(state.rowsByGroup).sort();
         for (const groupKey of keys) {
             const rows = state.rowsByGroup[groupKey] || [];
