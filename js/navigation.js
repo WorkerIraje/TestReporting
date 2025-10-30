@@ -1,14 +1,14 @@
-// Navigation management module
+
 const Navigation = {
   currentPage: 'workspace',
   
-  // Initialize navigation
+
   init() {
     this.bindEvents();
-    this.showPage('workspace'); // Default to workspace
+    this.showPage('workspace'); 
   },
 
-  // Bind navigation events
+
   bindEvents() {
     const navTabs = document.querySelectorAll('.nav-tab');
     navTabs.forEach(tab => {
@@ -19,38 +19,55 @@ const Navigation = {
     });
   },
 
-  // Show specific page
+
   showPage(pageId) {
-    // Update active tab
+
     document.querySelectorAll('.nav-tab').forEach(tab => {
       tab.classList.remove('active');
     });
-    document.querySelector(`[data-page="${pageId}"]`).classList.add('active');
+    document.querySelector(`[data-page="${pageId}"]`)?.classList.add('active');
 
-    // Show/hide pages
     document.querySelectorAll('.page').forEach(page => {
       page.style.display = 'none';
     });
-    
     const targetPage = document.getElementById(`${pageId}Page`);
     if (targetPage) {
       targetPage.style.display = 'block';
     }
-
-    // Show/hide toolbar based on page
+    
     const toolbar = document.getElementById('workspaceToolbar');
     if (toolbar) {
       toolbar.style.display = pageId === 'workspace' ? 'flex' : 'none';
     }
-
     this.currentPage = pageId;
+  
+    if (pageId === 'workspace') {
+      setTimeout(() => {
+        this.handleWorkspaceActivation();
+      }, 100);
+    }
 
-    // Trigger page-specific updates
     this.onPageChanged(pageId);
   },
 
-  // Handle page change events
-  // Update the onPageChanged method to include reports
+
+  handleWorkspaceActivation() {
+    console.log('🎯 Workspace activated - checking for data...');
+    const state = window.AppState;
+
+    if (state.flatRows && state.flatRows.length > 0) {
+      const sectionsRoot = document.getElementById('sectionsRoot');
+
+      if (!sectionsRoot || sectionsRoot.innerHTML.trim() === '' || sectionsRoot.style.display === 'none') {
+        console.log('🔄 Workspace has data but UI is empty - rebuilding...');
+        if (window.App && App.rebuildWorkspaceUI) {
+          App.rebuildWorkspaceUI();
+        }
+      }
+    }
+  },
+
+
 onPageChanged(pageId) {
   switch(pageId) {
     case 'status':
@@ -66,7 +83,7 @@ onPageChanged(pageId) {
       break;
       
     case 'reports':
-      // Update report statistics when switching to reports page
+
       if (window.ReportGenerator) {
         ReportGenerator.updateReportStats();
       }
@@ -78,11 +95,10 @@ onPageChanged(pageId) {
 },
 
 
-  // Get current page
+
   getCurrentPage() {
     return this.currentPage;
   }
 };
 
-// Export globally
 window.Navigation = Navigation;
