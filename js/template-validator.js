@@ -1,12 +1,12 @@
-// Template Validation Module
+
 const TemplateValidator = {
   
-  // Validate uploaded Excel sheet
+
   validateSheet(headers) {
     const normalizedHeaders = headers.map(h => h.trim().toLowerCase());
     const missingColumns = [];
     
-    // Check required columns
+
     CONFIG.REQUIRED_COLUMNS.forEach(col => {
       const found = normalizedHeaders.some(header => 
         header.includes(col.toLowerCase()) || 
@@ -24,7 +24,6 @@ const TemplateValidator = {
     };
   },
   
-  // Fuzzy matching for column names
   fuzzyMatch(str1, str2) {
     const clean1 = str1.replace(/[\s\-\_\/]/g, '').toLowerCase();
     const clean2 = str2.replace(/[\s\-\_\/]/g, '').toLowerCase();
@@ -32,7 +31,7 @@ const TemplateValidator = {
     return clean1.includes(clean2) || clean2.includes(clean1);
   },
   
-  // Show validation error modal
+
   showValidationError(missingColumns) {
     const modal = document.createElement('div');
     modal.className = 'validation-modal-overlay';
@@ -67,7 +66,7 @@ const TemplateValidator = {
     document.body.appendChild(modal);
   },
   
-  // Close validation modal
+
   closeModal() {
     const modal = document.querySelector('.validation-modal-overlay');
     if (modal) {
@@ -75,7 +74,7 @@ const TemplateValidator = {
     }
   },
   
-  // Download official template
+
   downloadTemplate() {
     const link = document.createElement('a');
     link.href = CONFIG.TEMPLATE_FILE_PATH;
@@ -88,7 +87,7 @@ const TemplateValidator = {
     this.showMessage('Template download started! Check your downloads folder.', 'success');
   },
   
-  // Show status message
+
   showMessage(message, type = 'info') {
     const notification = document.createElement('div');
     notification.className = `notification ${type}`;
@@ -107,5 +106,5 @@ const TemplateValidator = {
   }
 };
 
-// Export globally
+
 window.TemplateValidator = TemplateValidator;
