@@ -1,25 +1,24 @@
-// Enhanced UI rendering with proper ID-based sorting and delete functionality (Complete Version)
+
 const UIRenderer = {
-  // Render all sections incrementally with proper ordering
+
   renderAllSectionsIncremental() {
     const state = window.AppState;
     
     if (!state.flatRows || state.flatRows.length === 0) {
-      // Show empty state and update UI
+    
       if (window.App) {
         App.updateUIState();
       }
       return;
     }
 
-    // Clear existing content
     state.els.sectionsRoot.innerHTML = '';
     
-    // **FIXED: Get group keys in the order they appear in sorted flatRows**
+
     const groupOrder = [];
     const seenGroups = new Set();
     
-    // Build group order based on the sorted flatRows sequence
+
     state.flatRows.forEach(row => {
       const groupKey = (CONFIG.GROUP_BY === "module")
         ? (row.module || row.sheet || "General")
@@ -35,7 +34,7 @@ const UIRenderer = {
 
     function renderNextGroup() {
       if (gi >= groupOrder.length) {
-        // All groups rendered, update UI state
+     
         if (window.App) {
           App.updateUIState();
         }
@@ -46,7 +45,7 @@ const UIRenderer = {
       const container = UIRenderer.renderGroupContainer(key);
       const rows = state.rowsByGroup[key] || [];
       
-      // **NO ADDITIONAL SORTING HERE - rows are already sorted by ID**
+
       let idx = 0;
 
       function renderBatch() {
@@ -72,7 +71,7 @@ const UIRenderer = {
     renderNextGroup();
   },
 
-  // Create container for a group of test cases with delete functionality
+
   renderGroupContainer(groupKey) {
     const state = window.AppState;
     const groupRows = state.rowsByGroup[groupKey] || [];
@@ -98,7 +97,7 @@ const UIRenderer = {
     
     state.els.sectionsRoot.appendChild(section);
     
-    // Update meta after container is ready
+
     setTimeout(() => {
       const metaDiv = section.querySelector(".group-meta");
       if (metaDiv) {
@@ -112,15 +111,14 @@ const UIRenderer = {
     };
   },
 
-  // Render individual test case with all new features and delete functionality
+ 
   renderRow(row) {
     const li = Utils.create("li", { class: "test-case-item", id: `test-${row.id}` });
     const saved = Storage.loadRowState(row.id) || {};
 
-    // Apply status-based styling
     this.applyStatusStyling(li, saved.status);
 
-    // Enhanced header section with delete button
+    
     const header = Utils.create("div", { class: "test-header" }, [
       Utils.create("div", { class: "test-title-section" }, [
         Utils.create("label", { class: "test-title" }, `${row.id} — ${row.title}`)
@@ -136,7 +134,7 @@ const UIRenderer = {
       ])
     ]);
 
-    // Enhanced meta badges with Account Type
+
     const badges = [
       Utils.create("span", { class: "badge sheet" }, `Sheet: ${row.sheet}`),
       row.module ? Utils.create("span", { class: "badge module" }, `Module: ${row.module}`) : null,
@@ -147,7 +145,7 @@ const UIRenderer = {
 
     const metaBadges = Utils.create("div", { class: "meta-badges" }, badges);
 
-    // Details section
+
     const details = Utils.create("div", { class: "test-details" }, [
       row.pre ? Utils.create("div", { class: "detail-item" }, [
         Utils.create("strong", {}, "Preconditions: "), 
@@ -163,7 +161,7 @@ const UIRenderer = {
       ]) : null,
     ].filter(Boolean));
 
-    // Expected Result field (from Excel + editable)
+
     const expectedResult = Utils.create("textarea", { 
       rows: "2", 
       placeholder: "Expected Result",
@@ -174,11 +172,13 @@ const UIRenderer = {
       this.persistRowData(row.id, statusSel, attendedCheckbox, pendingCheckbox, notes, expectedResult, imageContainer);
     });
 
-    // Status selector
+
     const statusSel = Utils.create("select", { class: "status-selector" },
       ["", "Pass", "Fail", "Blocked"].map(val => {
         const opt = Utils.create("option", { value: val }, val || "— Select Status —");
-        if ((saved.status || "") === val) opt.selected = true;
+   
+        const currentStatus = saved.status || row.importedStatus || "";
+        if (currentStatus === val) opt.selected = true;
         return opt;
       })
     );
@@ -191,22 +191,25 @@ const UIRenderer = {
       this.updateModuleStatusSummary();
     });
 
-    // Attended/Pending checkboxes
     const attendedCheckbox = Utils.create("input", { 
       type: "checkbox", 
       id: `attended_${row.id}`,
       class: "attended-checkbox"
     });
-    if (saved.attended) attendedCheckbox.checked = true;
+
+    const isAttended = saved.attended || row.importedAttended || false;
+    if (isAttended) attendedCheckbox.checked = true;
     
     const pendingCheckbox = Utils.create("input", { 
       type: "checkbox", 
       id: `pending_${row.id}`,
       class: "pending-checkbox"
     });
-    if (saved.pending) pendingCheckbox.checked = true;
 
-    // Mutual exclusivity for checkboxes
+    const isPending = saved.pending || (!isAttended) || false;
+    if (isPending && !isAttended) pendingCheckbox.checked = true;
+
+
     attendedCheckbox.addEventListener("change", () => {
       if (attendedCheckbox.checked) pendingCheckbox.checked = false;
       this.persistRowData(row.id, statusSel, attendedCheckbox, pendingCheckbox, notes, expectedResult, imageContainer);
@@ -221,18 +224,16 @@ const UIRenderer = {
       if (window.Dashboard) Dashboard.updateDashboard();
     });
 
-    // Notes textarea
     const notes = Utils.create("textarea", { 
       rows: "3", 
       placeholder: "Notes / Observations",
       class: "notes-field"
-    }, saved.notes || "");
+    }, saved.notes || row.importedActualResult || "");
     
     notes.addEventListener("input", () => {
       this.persistRowData(row.id, statusSel, attendedCheckbox, pendingCheckbox, notes, expectedResult, imageContainer);
     });
 
-    // Enhanced image handling with delete functionality
     const imageInput = Utils.create("input", { 
       type: "file", 
       accept: "image/*",
@@ -242,7 +243,7 @@ const UIRenderer = {
     
     const imageContainer = Utils.create("div", { class: "image-container" });
     
-    // Load existing images with delete buttons
+  
     this.loadExistingImages(row.id, imageContainer);
 
     imageInput.addEventListener("change", async () => {
@@ -269,11 +270,11 @@ const UIRenderer = {
           }
         }
       }
-      // Clear input for next selection
+  
       imageInput.value = "";
     });
 
-    // Controls section with better organization
+
     const controls = Utils.create("div", { class: "test-controls" }, [
       Utils.create("div", { class: "control-row" }, [
         Utils.create("div", { class: "control-group" }, [
@@ -306,7 +307,7 @@ const UIRenderer = {
       ])
     ]);
 
-    // Assemble the row
+
     li.appendChild(header);
     li.appendChild(metaBadges);
     li.appendChild(details);
@@ -315,18 +316,18 @@ const UIRenderer = {
     return li;
   },
 
-  // Apply status-based styling
+
   applyStatusStyling(element, status) {
-    // Remove existing status classes
+
     element.classList.remove("status-pass", "status-fail", "status-blocked");
     
-    // Apply new status class
+    
     if (status) {
       element.classList.add(`status-${status.toLowerCase()}`);
     }
   },
 
-  // Validate image file types
+ 
   isValidImageFile(file) {
     const validTypes = [
       'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 
@@ -335,7 +336,7 @@ const UIRenderer = {
     return validTypes.includes(file.type.toLowerCase());
   },
 
-  // Load existing images with delete buttons
+
   loadExistingImages(testId, container) {
     const saved = Storage.loadRowState(testId) || {};
     if (saved.images && Array.isArray(saved.images)) {
@@ -345,7 +346,7 @@ const UIRenderer = {
     }
   },
 
-  // Add image to container with delete button
+ 
   addImageToContainer(imageSrc, container, testId) {
     const imageWrapper = Utils.create("div", { class: "image-wrapper" });
     
@@ -353,7 +354,7 @@ const UIRenderer = {
     img.src = imageSrc;
     img.className = "preview-image";
     
-    // Add click to view full size
+   
     img.addEventListener('click', () => {
       this.showImageModal(imageSrc);
     });
@@ -367,14 +368,14 @@ const UIRenderer = {
       e.stopPropagation();
       
       if (confirm('Are you sure you want to delete this image?')) {
-        // Remove from storage
+
         const saved = Storage.loadRowState(testId) || {};
         if (saved.images) {
           saved.images = saved.images.filter(src => src !== imageSrc);
           Storage.saveRowState(testId, saved);
         }
         
-        // Remove from UI
+
         container.removeChild(imageWrapper);
         
         if (window.showSuccessNotification) {
@@ -388,7 +389,7 @@ const UIRenderer = {
     container.appendChild(imageWrapper);
   },
 
-  // Show image in modal for full view
+
   showImageModal(imageSrc) {
     const modal = Utils.create("div", { class: "image-modal", onclick: "this.remove()" }, [
       Utils.create("div", { class: "image-modal-content" }, [
@@ -400,24 +401,24 @@ const UIRenderer = {
     document.body.appendChild(modal);
   },
 
-  // Update module status summary (now updates dashboard instead)
+
   updateModuleStatusSummary() {
-    // Update dashboard if on status page
+
     if (window.Navigation && Navigation.getCurrentPage() === 'status' && window.Dashboard) {
       Dashboard.refreshStatus();
     }
   },
 
-  // Persist row data with new fields
+
   persistRowData(testId, statusSel, attendedCheckbox, pendingCheckbox, notes, expectedResult, imageContainer) {
     const currentData = Storage.loadRowState(testId) || {};
     
-    // Collect current images
+
     const imageElements = imageContainer.querySelectorAll(".preview-image");
     const images = Array.from(imageElements).map(img => img.src);
     
     const obj = {
-      ...currentData, // Preserve existing data
+      ...currentData, 
       status: statusSel.value || "",
       attended: attendedCheckbox.checked,
       pending: pendingCheckbox.checked,
@@ -426,15 +427,20 @@ const UIRenderer = {
       images: images,
       lastModified: new Date().toISOString()
     };
-    
+  
     Storage.saveRowState(testId, obj);
+  
+    setTimeout(() => {
+      Storage.saveAppState();
+    }, 100);
+    console.log(`💾 Auto-saved test case ${testId}`);
   },
 
-  // Delete individual test case
+
   deleteTestCase(testId) {
     const testElement = Utils.$(`#test-${testId}`);
     if (testElement) {
-      // Add deletion animation
+
       testElement.style.transition = 'all 0.3s ease';
       testElement.style.opacity = '0';
       testElement.style.transform = 'translateX(-100%)';
@@ -444,14 +450,14 @@ const UIRenderer = {
           testElement.parentElement.removeChild(testElement);
         }
         
-        // Check if group is now empty
+   
         const groupElement = testElement.closest('.test-group');
         if (groupElement) {
           const remainingTests = groupElement.querySelectorAll('.test-case-item');
           if (remainingTests.length === 0) {
             groupElement.remove();
           } else {
-            // Update group count
+  
             const groupTitle = groupElement.querySelector('.group-title .group-count');
             if (groupTitle) {
               const newCount = remainingTests.length;
@@ -463,19 +469,19 @@ const UIRenderer = {
     }
   },
 
-  // Re-render after deletion or update
+
   refreshGroups() {
     const state = window.AppState;
     if (state.flatRows && state.flatRows.length > 0) {
-      // Re-group data
+
       if (window.App && App.groupTestCases) {
         App.groupTestCases();
       }
       
-      // Re-render
+
       this.renderAllSectionsIncremental();
     } else {
-      // Show empty state
+
       state.els.sectionsRoot.innerHTML = '';
       if (window.App) {
         App.updateUIState();
@@ -484,23 +490,23 @@ const UIRenderer = {
   }
 };
 
-// Global delete functions for HTML onclick handlers
+
 window.deleteTestCase = function(testId) {
   if (!confirm('Are you sure you want to delete this test case? This action cannot be undone.')) {
     return;
   }
 
   try {
-    // Remove from AppState
+
     window.AppState.flatRows = window.AppState.flatRows.filter(row => row.id !== testId);
     
-    // Remove from storage
+
     Storage.removeRowState(testId);
     
-    // Update UI
+
     UIRenderer.deleteTestCase(testId);
     
-    // Update state and dashboard
+
     if (window.App) {
       App.groupTestCases();
       App.updateUIState();
@@ -535,7 +541,7 @@ window.deleteGroup = function(groupKey) {
   }
 
   try {
-    // Remove all test cases in this group from AppState
+ 
     window.AppState.flatRows = window.AppState.flatRows.filter(row => {
       const rowGroup = (CONFIG.GROUP_BY === "module") 
         ? (row.module || row.sheet || "General")
@@ -543,19 +549,18 @@ window.deleteGroup = function(groupKey) {
       return rowGroup !== groupKey;
     });
     
-    // Remove from storage
+
     groupRows.forEach(row => {
       Storage.removeRowState(row.id);
     });
     
-    // Re-group and refresh
+ 
     if (window.App) {
       App.groupTestCases();
     }
     
     UIRenderer.refreshGroups();
-    
-    // Update dashboard
+  
     if (window.Dashboard) {
       Dashboard.updateDashboard();
     }
@@ -576,5 +581,5 @@ window.deleteGroup = function(groupKey) {
   }
 };
 
-// Export UIRenderer
+
 window.UIRenderer = UIRenderer;
