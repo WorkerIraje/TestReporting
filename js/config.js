@@ -44,7 +44,7 @@ const CONFIG = {
       statusCol: "Status (Pass/Fail/Blocked)",
       actualResultCol: "Actual Result"
     },
-    "Iraje EPM Post-Test Cases": {
+    "TestCases": {
       moduleCol: "Module/Feature",
       idCol: "Test ID",
       titleCol: " Title/Description",   
@@ -84,3 +84,4 @@ const CONFIG = {
 
 // Export for other modules
 window.CONFIG = CONFIG;
+
