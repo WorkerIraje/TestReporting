@@ -29,7 +29,22 @@
     </div>
   </header>
 
-  <main id="app" class="app-main" tabindex="-1"></main>
+  <main id="app" class="app-main" tabindex="-1">
+    <!-- Replaced by the app as soon as it starts. Only becomes visible (after a short delay)
+         when the scripts could not run, e.g. index.html opened from disk as file:///. -->
+    <div class="boot-note" role="status">
+      <div class="boot-card">
+        <h1>The app couldn't start</h1>
+        <p>Iraje QA Management has to be opened through a web address, not as a file.
+          Browsers block its scripts when the page is opened from disk (an address starting with <code>file:///</code>).</p>
+        <ul>
+          <li>Open the hosted site (your Vercel link), or</li>
+          <li>run <code>npx --yes http-server -p 5173 -c-1</code> in this folder and open <code>http://localhost:5173</code>.</li>
+        </ul>
+        <p class="boot-hint">Already on a web address? Make sure JavaScript is enabled and reload the page.</p>
+      </div>
+    </div>
+  </main>
 
   <noscript>
     <div class="noscript">Iraje QA Management needs JavaScript to run. Please enable it and reload the page.</div>
