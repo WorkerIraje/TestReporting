@@ -1,11 +1,12 @@
 # Iraje QA Management: design notes
 
-Status: implemented (rebuild of the TestReporting site, October 2026).
+Status: implemented (rebuild of the TestReporting site, October 2026; Enhancement Report added 15 October 2026).
 
 ## Goal
 
 Let a tester author or import test cases, attach screenshot evidence quickly, and produce professional
-reports, with minimal friction, on any screen size, without any data leaving the browser.
+reports, with minimal friction, on any screen size, without any data leaving the browser. The Enhancement
+Report workspace does the same for improvement requests.
 
 ## Decisions agreed with the owner
 
@@ -19,19 +20,32 @@ reports, with minimal friction, on any screen size, without any data leaving the
 | Upload limit | 600 test cases per upload: the first 600 are imported with a warning; more can be added with Next or a second upload (append), up to the template's 1,500-row capacity. |
 | Extras | Autosave and resume (IndexedDB), test case navigator (search / filter / drag reorder), "defects only" report scope, shareable `.iqa` project file. |
 | Delivery | Pushed to a feature branch first so Vercel builds a preview; production updates only when merged to `main`. |
-| Enhancement Report | Shown greyed out as "Coming soon"; planned for the next iteration. |
+| Enhancement Report | Second workspace on the same card engine (spec: `docs/superpowers/specs/2026-10-15-enhancement-report-design.md`). Required: Title, Module / Feature, Priority, Current behaviour, Proposed improvement, Business value; optional: Category, Status (blank = Proposed), Acceptance criteria. No effort field. |
+| Enhancement priority | Critical / High / Medium / Low, same words and colours as Severity. |
+| Enhancement template | A Word (DOCX) template, not Excel: blocks of Title, Description, Reference screenshot; Description maps to Current behaviour. |
+| Enhancement reports | PDF / DOCX / HTML with scope (all, Critical + High, Approved + Planned), layout, priority × status matrix and a Review & sign-off block. |
+| Navigation | Header: Home · Test Cases · Enhancements; each workspace keeps its reporting view as a tab. |
 
 ## Architecture
 
 * **Static site, no build step:** ES modules plus vendored UMD libraries loaded on demand. Vercel deploys
   the repository as-is.
-* **State:** `js/core/store.js` holds the ordered test cases, the current position and report details,
-  emits events, and debounces writes to IndexedDB (`cases`, `images`, `kv` stores). Screenshots are stored
-  as Blobs with a pre-rendered thumbnail; only the visible card is rendered, so 1,000+ cases stay instant.
+* **Workspaces:** `js/core/workspaces.js` describes Test Cases and the Enhancement Report (fields, groups,
+  wording, limits, statistics, navigator filters). The store, card editor, navigator and workspace shell are
+  shared and read their behaviour from these definitions.
+* **State:** `js/core/store.js` (`createStore(definition)`) holds the ordered cards, the current position
+  and report details, emits events, and debounces writes to IndexedDB (`cases`, `images`, `kv` stores).
+  Each workspace has its own database (`iraje-qa-management`, `iraje-qa-enhancements`). Screenshots are
+  stored as Blobs with a pre-rendered thumbnail; only the visible card is rendered, so 1,000+ cases stay
+  instant.
 * **Template I/O:** import uses SheetJS in a Web Worker; export edits the template's XML with JSZip and
   DOMParser, writing inline strings and forcing a full recalculation on open.
-* **Reports:** one shared model (`js/reports/model.js`) feeds three generators: jsPDF (+ AutoTable) for
-  PDF, `docx` for Word, and a self-contained HTML document.
+* **Reports:** each workspace builds a neutral report document (`js/reports/model.js`,
+  `js/reports/enhancement-model.js`: cover, summary, index, items, sign-off, colours named by shared tones)
+  that three renderers draw: jsPDF (+ AutoTable) for PDF, `docx` for Word, and a self-contained HTML
+  document.
+* **Word template:** `js/services/enhancement-template.js` builds the branded template with `docx` and
+  reads a filled one back with JSZip + `DOMParser`.
 
 ## Limits
 
@@ -43,8 +57,10 @@ reports, with minimal friction, on any screen size, without any data leaving the
 | Screenshots per test case | 20 |
 | Screenshot size | 15 MB, 40 megapixels |
 | Project file | 512 MB |
+| Enhancement requests per session | 500 |
+| Enhancement blocks per Word upload | 200 |
+| Word upload size | 50 MB |
 
 ## Next iteration (proposed)
 
-* Enhancement Report workspace (same card engine, enhancement-specific fields and report).
 * Optional screenshot annotation (arrows, boxes, blur for sensitive data) before it is attached.

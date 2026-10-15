@@ -3,7 +3,9 @@
 Write test cases card by card or import your existing sheet, attach the screenshots that prove each
 result, and turn a full test cycle into a polished, audit-ready report: the filled Excel **TestSheet**,
 plus **PDF**, **Word (DOCX)** and **HTML** reports, all branded with the Iraje logo and a
-"Iraje Software" watermark on every page.
+"Iraje Software" watermark on every page. The **Enhancement Report** workspace does the same for
+improvement requests: describe the gap and the proposed improvement, back it with reference
+screenshots, prioritise it and hand the team a branded report with a review and sign-off block.
 
 Everything runs in the browser. Test cases and screenshots never leave the tester's machine.
 
@@ -12,10 +14,13 @@ Everything runs in the browser. Test cases and screenshots never leave the teste
 | Page | What it does |
 | --- | --- |
 | **Welcome** | Purpose of the tool and the way in. |
-| **Home** | Pick a workspace: **Test Cases**, or **Enhancement Report** (coming soon). |
+| **Home** | Pick a workspace: **Test Cases** or **Enhancement Report**. |
 | **Test Cases → Create** | One large card per test case with every field of the template. |
 | **Test Cases → Upload** | Import a filled Iraje test case template; each row becomes a card. |
 | **Test Cases → Reporting** | Summary of all test cases with screenshots, **Download TestSheet** and **Next** (PDF / DOCX / HTML). |
+| **Enhancement Report → Create** | One card per enhancement request. |
+| **Enhancement Report → Upload** | Import the filled Word enhancement template; each block becomes a card. |
+| **Enhancement Report → Summary** | Priority overview, priority × status matrix, all requests with screenshots and **Next** (PDF / DOCX / HTML). |
 
 ### The test case card
 
@@ -34,13 +39,33 @@ Everything runs in the browser. Test cases and screenshots never leave the teste
 * **All test cases** opens a navigator with search, status filters and drag-and-drop reordering.
 * **Finish** checks for incomplete test cases and opens the Reporting tab.
 
+### The enhancement request card
+
+* **Request:** Title, Module / Feature and Priority (Critical / High / Medium / Low) are required; Category
+  (Functionality, UI / UX, Usability, Performance, Security, …, or your own) and Status (Under review,
+  Approved, Planned, Done, Rejected; empty means **Proposed**) are optional.
+* **Details:** Current behaviour, Proposed improvement and Business value are required; Acceptance criteria
+  is optional.
+* **Reference screenshots**, bookmarks, the navigator (filters by priority), Undo, autosave and every
+  keyboard shortcut work exactly as on the test case card. IDs read `ER-001`, `ER-002`, …
+
+### Word enhancement template
+
+**Download template** (Enhancement Report toolbar or Upload tab) builds `Iraje_Enhancement_Template.docx`:
+the Iraje logo and watermark, a short how-to, and five blocks with **Title**, **Description** and
+**Reference screenshot** rows. Anyone can fill it in Word; copy a block for more requests and paste
+screenshots as pictures. On **Upload**, every filled block becomes a card: Title → Title,
+Description → Current behaviour, pictures → reference screenshots. Module, Proposed improvement,
+Business value and Priority are then completed on each card. Up to **200 blocks per upload**, 50 MB per
+file, **500 requests** per session.
+
 ### Keyboard shortcuts
 
 | Keys | Action |
 | --- | --- |
-| `Ctrl + Enter` | Next test case (creates a new one on the last card) |
-| `Ctrl + Shift + Enter` | Previous test case |
-| `Ctrl + B` | Bookmark / un-bookmark the current test case |
+| `Ctrl + Enter` | Next card (creates a new one on the last card) |
+| `Ctrl + Shift + Enter` | Previous card |
+| `Ctrl + B` | Bookmark / un-bookmark the current card |
 | `Enter` | New line inside a field (moves to the next field in single-line inputs) |
 | `Tab` / `Shift + Tab` | Next / previous field |
 | `Ctrl + V` | Paste a screenshot from the clipboard |
@@ -78,12 +103,20 @@ carries a small Iraje logo and a faint "Iraje Software" watermark. Options: **al
   linked index, editable in Word / WPS / Google Docs.
 * **HTML:** a single self-contained file with search, status filters, image zoom and print-ready pages.
 
+The **enhancement report** uses the same frame: cover with priorities at a glance, executive summary
+(priority split, priority × status matrix, by module, by category), a request index, each request with
+Current behaviour and Proposed improvement side by side, Business value, Acceptance criteria and its
+reference screenshots, and a closing **Review & sign-off** block (Prepared / Reviewed / Approved by, with
+empty Signature and Date boxes). Options: **all requests**, **Critical + High only** or
+**Approved + Planned only**, and one request per page or continuous.
+
 ### Sessions
 
-* Work is **autosaved** in the browser (IndexedDB) as you type and restored on the next visit.
-* **Save project file** (`.iqa`) packs all test cases and screenshots into one file that a teammate can
-  open with **Open project file**.
-* **Start a new session** clears everything (with confirmation).
+* Work is **autosaved** in the browser (IndexedDB) as you type and restored on the next visit. Each
+  workspace has its own session: clearing one never touches the other.
+* **Save project file** (`.iqa`) packs all cards and screenshots of a workspace into one file that a
+  teammate can open with **Open project file** in the same workspace (the other workspace refuses it).
+* **Start a new session** clears the current workspace (with confirmation).
 
 ## Security
 
@@ -101,6 +134,9 @@ Built for a security-sensitive product team:
   and exact template header matching.
 * **Image hardening:** screenshots are accepted by file signature only (PNG, JPEG, GIF, WebP, BMP);
   SVG and disguised files are rejected; decoded dimensions are capped.
+* **Word upload hardening:** `.docx` only, 50 MB cap, ZIP signature check, entry-count and uncompressed
+  size limits checked before anything is inflated, XML read with `DOMParser`, picture references resolved
+  inside the file only (linked pictures are never fetched), every picture through the image checks above.
 * **Spreadsheet formula injection:** the TestSheet writes every value as an inline string, so text such
   as `=HYPERLINK(...)` can never become a live formula.
 * **Up-to-date libraries:** SheetJS 0.20.3 (fixes CVE-2023-30533 and CVE-2024-22363 present in the
@@ -112,11 +148,14 @@ Built for a security-sensitive product team:
 index.html              App shell (header, router outlet)
 css/app.css             Design system and all styles
 js/main.js              Bootstrap + hash router
-js/core/                config (template mapping, limits), store (state + autosave), db (IndexedDB), util, loader
+js/core/                config (template mapping, limits), workspaces (Test Cases / Enhancement definitions),
+                        store (state + autosave, one per workspace), db (IndexedDB), util, loader
 js/ui/                  dom builder, icons, modal, toast, popover, lightbox, sortable, shortcuts
-js/pages/               welcome, home, workspace (tabs), editor (card), navigator, upload, report
-js/services/            images, importer, template (TestSheet), project-file
-js/reports/             model + html / pdf / docx generators
+js/pages/               welcome, home, workspace (shared shell), testcases / enhancements (instances),
+                        editor (card), navigator, upload, report, enhancement-upload, enhancement-summary
+js/services/            images, importer, template (TestSheet), enhancement-template (Word), project-file
+js/reports/             model (report documents) + enhancement-model, tones, docx-brand,
+                        html / pdf / docx renderers
 js/workers/             spreadsheet parser worker
 vendor/                 jszip, jspdf (+ autotable), docx, SheetJS: pinned, with licenses
 assets/                 Excel template, logo, fonts (Poppins, OFL)
@@ -134,6 +173,9 @@ npx --yes http-server -p 5173 -c-1
 
 Then open <http://localhost:5173>. Opening `index.html` directly from disk does not work, because browsers
 block ES modules and workers on `file://`.
+
+Tests run in the browser: open <http://localhost:5173/tests.html> (add `?only=store` to run one file).
+`tests/`, `tests.html` and `docs/superpowers/` are listed in `.vercelignore`, so they are never deployed.
 
 ## Deploying
 
