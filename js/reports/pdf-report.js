@@ -401,9 +401,18 @@ export async function build(model, { store, onProgress = () => {} }) {
     fill(color);
     doc.rect(x + 2.5, y + 20.2, kw - 5, 1, 'F');
     font('bold', 6.6, C.muted);
-    doc.text(clean(k.label).toUpperCase(), x + 3.5, y + 4, { baseline: 'top', charSpace: 0.25 });
+    const lab = clean(k.label).toUpperCase();
+    let valueY = 9.2;
+    if (doc.getTextWidth(lab) + lab.length * 0.25 <= kw - 7) {
+      doc.text(lab, x + 3.5, y + 4, { baseline: 'top', charSpace: 0.25 });
+    } else {
+      // long labels (e.g. "Approved + Planned") wrap onto two smaller lines
+      font('bold', 5.8, C.muted);
+      doc.splitTextToSize(lab, kw - 9).slice(0, 2).forEach((line, n) => doc.text(line, x + 3.5, y + 3.2 + n * 2.7, { baseline: 'top', charSpace: 0.15 }));
+      valueY = 10.4;
+    }
     font('heavy', 15, color);
-    doc.text(clean(String(k.value)), x + 3.5, y + 9.2, { baseline: 'top' });
+    doc.text(clean(String(k.value)), x + 3.5, y + valueY, { baseline: 'top' });
   });
   y += 28;
   label(summary.barLabel);
@@ -572,6 +581,34 @@ export async function build(model, { store, onProgress = () => {} }) {
     y += boxH + 4;
   }
 
+  // ---------- sign-off ----------
+  let signoffPage = null;
+  if (model.signoff) {
+    const so = model.signoff;
+    if (model.layout === 'page') newPage();
+    else y += 8;
+    ensure(16 + 14 + 9 + so.rows.length * 17);
+    signoffPage = page();
+    sectionTitle(so.title);
+    if (so.note) {
+      paragraph(so.note, ML, CW, 9, C.muted);
+      y += 3;
+    }
+    autoTable(doc, {
+      ...tableBase,
+      startY: y,
+      head: [['Role', 'Name', 'Signature', 'Date']],
+      body: so.rows.map((r) => [clean(r.role), clean(r.name), '', '']),
+      styles: { ...tableBase.styles, minCellHeight: 16, lineColor: C.line, lineWidth: 0.25 },
+      headStyles: { ...tableBase.headStyles, lineWidth: 0.25 },
+      alternateRowStyles: {},
+      columnStyles: { 0: { cellWidth: 34, fontStyle: 'bold', textColor: C.navy }, 1: { cellWidth: 52, textColor: C.navy }, 3: { cellWidth: 34 } },
+      pageBreak: 'avoid',
+      rowPageBreak: 'avoid',
+    });
+    y = doc.lastAutoTable.finalY + 6;
+  }
+
   // ---------- links, outline, footers ----------
   onProgress(0.97, 'Numbering pages…');
   for (const l of links) {
@@ -584,6 +621,7 @@ export async function build(model, { store, onProgress = () => {} }) {
     doc.outline.add(null, summary.title, { pageNumber: summaryPage });
     const idx = doc.outline.add(null, index.title, { pageNumber: indexPage });
     model.items.forEach((item, k) => doc.outline.add(idx, ascii(`${item.id}  ${item.title || 'Untitled'}`).slice(0, 90), { pageNumber: itemPage[k] }));
+    if (signoffPage) doc.outline.add(null, ascii(model.signoff.title), { pageNumber: signoffPage });
   } catch (err) {
     console.warn('PDF outline skipped', err);
   }

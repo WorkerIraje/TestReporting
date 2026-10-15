@@ -1,7 +1,7 @@
 // Seeded workspaces for report tests: a fixed set of test cases with screenshots.
 
 import { createStore } from '../js/core/store.js';
-import { TESTCASES } from '../js/core/workspaces.js';
+import { TESTCASES, ENHANCEMENTS } from '../js/core/workspaces.js';
 import { processImageFiles } from '../js/services/images.js';
 import { testDef, pngFile } from './fixtures.js';
 
@@ -25,6 +25,23 @@ export async function seededTestCases() {
   await s.init();
   const { records } = await processImageFiles([await pngFile(1280, 720, '#0451CC', 'lockout.png'), await pngFile(900, 1400, '#D92D20', 'mobile.png')]);
   await s.loadCases(CASES.map((c, i) => ({ ...c, images: i === 1 ? records.map((r) => r.id) : [] })), records, { mode: 'replace', report: REPORT });
+  return { s, def };
+}
+
+export const ENH_ITEMS = [
+  { title: 'A', module: 'Login', category: 'Usability', priority: 'Critical', status: 'Approved', current: 'Users pick the tenant on every login.', proposed: 'Pre-select the last used tenant.', value: 'Saves a click for 300 daily users.', acceptance: 'The last tenant is selected after sign-out and sign-in.' },
+  { title: 'B', module: 'Login', category: 'Security', priority: 'High', status: '', current: 'Lockout length is fixed.', proposed: 'Make lockout length configurable.', value: 'Matches customer policies.' },
+  { title: 'C', module: 'Reports', category: 'Reporting', priority: 'Medium', status: 'Planned', current: 'Exports are CSV only.', proposed: 'Add XLSX export.', value: 'Fewer conversions for auditors.' },
+  { title: 'D', module: 'Reports', category: '', priority: 'Low', status: 'Rejected', current: 'Charts are static.', proposed: 'Animate charts.', value: 'Looks nicer.' },
+  { title: 'E', module: 'Session', category: 'Usability', priority: 'Low', status: 'Done', current: 'No idle warning.', proposed: 'Warn one minute before timeout.', value: 'Fewer lost forms.' },
+];
+
+/** Returns an initialised enhancement store holding items (default ENH_ITEMS) and report details. */
+export async function seededEnhancements(items = ENH_ITEMS, report = { product: 'Iraje PAM', build: '4.6', preparedBy: 'Asha', approvedBy: 'Ravi', date: '2026-10-15' }) {
+  const def = testDef(ENHANCEMENTS);
+  const s = createStore(def);
+  await s.init();
+  await s.loadCases(items, [], { mode: 'replace', report });
   return { s, def };
 }
 

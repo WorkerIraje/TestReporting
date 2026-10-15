@@ -251,6 +251,29 @@ export async function build(model, { store, onProgress = () => {} }) {
     if (k % 5 === 0) await nextFrame();
   }
 
+  // ---------- sign-off ----------
+  if (model.signoff) {
+    const so = model.signoff;
+    if (model.layout !== 'page') push(spacer(320));
+    push(heading(so.title, { pageBreak: model.layout === 'page' }));
+    if (so.note) push(para(run(so.note, { size: 18, color: COL.muted }), { after: 200, keepNext: true }));
+    const sw = [2000, 2900, CONTENT - 2000 - 2900 - 1900, 1900];
+    const grid = { top: thin(COL.line), bottom: thin(COL.line), left: thin(COL.line), right: thin(COL.line), insideHorizontal: thin(COL.line), insideVertical: thin(COL.line) };
+    const last = so.rows.length - 1;
+    push(table([
+      new TableRow({
+        tableHeader: true,
+        cantSplit: true,
+        children: ['Role', 'Name', 'Signature', 'Date'].map((t, i) => cell(para(caps(t, COL.navy, 14), { after: 0, keepNext: true }), { width: sw[i], fill: COL.soft, border: COL.line, pad: 80 })),
+      }),
+      ...so.rows.map((r, ri) => new TableRow({
+        cantSplit: true,
+        height: { value: 900, rule: 'atLeast' },
+        children: [r.role, r.name, '', ''].map((t, i) => cell(para(run(t, { size: 19, bold: i === 0, color: COL.navy }), { after: 0, keepNext: ri < last }), { width: sw[i], border: COL.line, pad: 100 })),
+      })),
+    ], sw, { borders: grid }));
+  }
+
   onProgress(0.96, 'Packaging the document…');
   const doc = new Document({
     creator: model.author,

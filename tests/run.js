@@ -2,8 +2,8 @@
 
 import { registry, setFile } from './harness.js';
 
-const FILES = ['store.test.js', 'project-file.test.js', 'report-model.test.js'];
-const ON_DEMAND = ['report-parity.test.js']; // slow, writes files: only with ?only=
+const FILES = ['store.test.js', 'project-file.test.js', 'report-model.test.js', 'enhancement-report.test.js'];
+const ON_DEMAND = ['report-parity.test.js', 'enhancement-output.test.js']; // slow, writes files: only with ?only=
 const TIMEOUT = 60_000;
 
 const only = new URLSearchParams(location.search).get('only');
