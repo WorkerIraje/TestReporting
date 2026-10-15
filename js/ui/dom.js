@@ -8,7 +8,7 @@ import { icon } from './icons.js';
  * Tag shorthand supports "tag#id.class1.class2".
  */
 export function h(spec, props, ...children) {
-  if (props instanceof Node || typeof props === 'string' || Array.isArray(props)) {
+  if (props instanceof Node || typeof props === 'string' || typeof props === 'number' || Array.isArray(props)) {
     children.unshift(props);
     props = null;
   }
