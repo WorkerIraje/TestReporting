@@ -137,9 +137,18 @@ function paragraphText(p) {
   return list && out.trim() ? `• ${out}` : out;
 }
 
-/** Text of a table cell: one line per paragraph (nested tables included), outer blank lines removed. */
-function cellText(tc) {
-  const lines = [...tc.getElementsByTagNameNS(NS.w, 'p')].map(paragraphText);
+const HINTS = new Set(BLOCK_ROWS.map((r) => r.hint.toLowerCase()));
+
+/**
+ * Text of a table cell: one line per paragraph (nested tables included), outer blank lines removed.
+ * skipLabel: the cell is a merged label + value cell, so its label line and template hint are dropped.
+ */
+function cellText(tc, { skipLabel = false } = {}) {
+  let lines = [...tc.getElementsByTagNameNS(NS.w, 'p')].map(paragraphText);
+  if (skipLabel) {
+    lines.splice(lines.findIndex((t) => t.trim()), 1);
+    lines = lines.filter((t) => !HINTS.has(t.trim().toLowerCase()));
+  }
   while (lines.length && !lines[0].trim()) lines.shift();
   while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
   return lines.join('\n');
@@ -223,23 +232,36 @@ export async function parseTemplate(file, { onStep = () => {} } = {}) {
   onStep('blocks');
   const blocks = [];
   let labelRows = 0;
-  let cur = null;
+  let ignoredRows = 0;
+  const join = (...parts) => parts.filter((t) => t.trim()).join('\n');
   for (const tbl of [...doc.getElementsByTagNameNS(NS.w, 'tbl')].filter((t) => !insideTable(t))) {
+    let cur = null; // a table that does not start with a Title row starts its own request
+    let last = null; // kind of the last labelled row, for unlabeled rows added below it
     for (const tr of kids(tbl, 'tr')) {
       const cells = kids(tr, 'tc');
-      if (cells.length < 2) continue;
+      if (!cells.length) continue;
       const kind = labelKind(firstLine(cells[0]));
-      if (!kind) continue;
-      labelRows++;
-      if (kind === 'title' || !cur) {
-        cur = { title: '', description: '', refs: [] };
-        blocks.push(cur);
+      const refs = cells.flatMap(imageRefs); // pictures count wherever they were pasted in the row
+      if (kind) {
+        labelRows++;
+        if (kind === 'title' || !cur) {
+          cur = { title: '', description: '', refs: [] };
+          blocks.push(cur);
+        }
+        last = kind;
+        // the value is in the other cells, or below the label when the row was merged into one cell
+        const text = cells.length > 1 ? join(...cells.slice(1).map((c) => cellText(c))) : cellText(cells[0], { skipLabel: true });
+        if (kind === 'title') cur.title = text.replace(/\s*\n\s*/g, ' ').trim();
+        else if (kind === 'description') cur.description = join(cur.description, text);
+        cur.refs.push(...refs);
+      } else if (cur) {
+        // an unlabeled row (Tab in the last cell, a caption row): keep its pictures, and its text when
+        // it continues the Description; other text is reported as not imported
+        cur.refs.push(...refs);
+        const text = join(...cells.map((c) => cellText(c)));
+        if (text && last === 'description') cur.description = join(cur.description, text);
+        else if (text) ignoredRows++;
       }
-      const values = cells.slice(1);
-      const text = values.map(cellText).filter((t) => t.trim()).join('\n');
-      if (kind === 'title') cur.title = text.replace(/\s*\n\s*/g, ' ').trim();
-      else if (kind === 'description') cur.description = [cur.description, text].filter(Boolean).join('\n');
-      for (const c of values) cur.refs.push(...imageRefs(c));
     }
   }
   if (!labelRows) {
@@ -288,5 +310,5 @@ export async function parseTemplate(file, { onStep = () => {} } = {}) {
     }
     items.push({ title: b.title, current: b.description, images: ids });
   }
-  return { items, images, found: filled.length, truncated: filled.length - kept.length, skipped: blocks.length - filled.length, rejected };
+  return { items, images, found: filled.length, truncated: filled.length - kept.length, skipped: blocks.length - filled.length, ignoredRows, rejected };
 }

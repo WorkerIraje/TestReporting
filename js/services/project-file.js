@@ -10,7 +10,9 @@ import { processImageFiles } from './images.js';
 import { ImportError } from './importer.js';
 
 const APP_ID = 'iraje-qa-management';
-const FORMAT = 1;
+// Enhancement projects use format 2, so builds that only know test cases refuse them instead of
+// loading them as test cases.
+const FORMATS = { [TESTCASES.key]: 1, [ENHANCEMENTS.key]: 2 };
 const KINDS = { [TESTCASES.key]: TESTCASES, [ENHANCEMENTS.key]: ENHANCEMENTS };
 
 export async function saveProject(store, onProgress = () => {}) {
@@ -32,7 +34,7 @@ export async function saveProject(store, onProgress = () => {}) {
   }
   const manifest = {
     app: APP_ID,
-    format: FORMAT,
+    format: FORMATS[store.def.key],
     savedAt: new Date().toISOString(),
     kind: store.def.key,
     report: store.state.report,
@@ -81,7 +83,7 @@ export async function openProject(file, def, onProgress = () => {}) {
   } catch {
     throw new ImportError('Damaged project file', 'The project manifest is not valid.');
   }
-  if (manifest?.app !== APP_ID || manifest.format !== FORMAT || !Array.isArray(manifest.cases)) {
+  if (manifest?.app !== APP_ID || !Object.values(FORMATS).includes(manifest.format) || !Array.isArray(manifest.cases)) {
     throw new ImportError('Unsupported project', 'This project was not created by Iraje QA Management, or by a newer version.');
   }
   const kind = KINDS[manifest.kind || TESTCASES.key];

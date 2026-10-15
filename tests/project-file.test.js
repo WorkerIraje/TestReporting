@@ -49,3 +49,12 @@ test('old project without kind opens in Test Cases', async () => {
   eq(data.cases.length, 1);
   ok(await rejects(() => openProject(file, ENHANCEMENTS), (e) => e.title === 'Wrong workspace'));
 });
+
+test('enhancement projects use format 2 so older builds refuse them', async () => {
+  const JSZip = await getJSZip();
+  const er = await seeded(ENHANCEMENTS, { title: 'Faster login' });
+  const tc = await seeded(TESTCASES, { title: 'Login works' });
+  const fmt = async (s) => JSON.parse(await (await JSZip.loadAsync(await saveProject(s))).file('manifest.json').async('string')).format;
+  eq([await fmt(er.s), await fmt(tc.s)], [2, 1]);
+  await Promise.all([dropDb(er.d.dbName), dropDb(tc.d.dbName)]);
+});

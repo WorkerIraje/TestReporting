@@ -137,6 +137,7 @@ export function mount(root, ws) {
       const warnings = [];
       if (result.truncated) warnings.push(`Your document has ${result.found.toLocaleString()} filled blocks. Only the first ${def.maxUploadItems} were imported (limit per upload). Upload the rest as a second document with "Add after mine".`);
       if (added < result.items.length) warnings.push(`Only ${added} fit: ${def.maxItemsMessage}`);
+      if (result.ignoredRows) warnings.push(`${plural(result.ignoredRows, 'row')} of text outside the Title and Description rows ${result.ignoredRows === 1 ? 'was' : 'were'} not imported (pictures in them were).`);
       for (const r of result.rejected.slice(0, 5)) warnings.push(`${r.name}: ${r.reason}.`);
       if (result.rejected.length > 5) warnings.push(`…and ${result.rejected.length - 5} more screenshots were skipped.`);
       warnings.push('Module, Proposed improvement, Business value and Priority still need filling on each card.');

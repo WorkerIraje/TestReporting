@@ -13,7 +13,10 @@ async function makeDocx(tables, { paragraphsOnly = false } = {}) {
   const { Document, Packer, Paragraph, Table, TableRow, TableCell, ImageRun, WidthType } = d;
   const png = new Uint8Array(await (await pngFile(240, 140, '#0451CC')).arrayBuffer());
   const paras = (v) => {
-    if (v && v.image) return [new Paragraph({ children: [new ImageRun({ type: 'png', data: png, transformation: { width: 120, height: 70 } })] })];
+    if (v && v.image) {
+      return [...(v.paras || []).map((t) => new Paragraph(t)),
+        new Paragraph({ children: [new ImageRun({ type: 'png', data: png, transformation: { width: 120, height: 70 } })] })];
+    }
     if (v && v.bullets) return v.bullets.map((t) => new Paragraph({ text: t, bullet: { level: 0 } }));
     if (v && v.nested) return [new Paragraph(v.nested.text), new Table({ rows: [new TableRow({ children: [new TableCell({ children: [new Paragraph(v.nested.inner)] })] })] }), new Paragraph('')];
     if (Array.isArray(v)) return v.map((t) => new Paragraph(t));
@@ -103,4 +106,28 @@ test('more than 200 blocks are truncated', async () => {
   eq(r.items.length, 200);
   eq(r.truncated, 1);
   eq(r.found, 201);
+});
+
+test('pictures in merged or unlabeled rows are kept', async () => {
+  const r = await parseTemplate(asFile(await makeDocx([[
+    ['Title', 'Wide shot'],
+    ['Description', 'Line A'],
+    ['', 'Line B'],
+    [{ paras: ['Reference screenshot', 'Paste one or more screenshots'], image: true }],
+    ['', { image: true }],
+    ['Caption under the pictures', ''],
+  ]])));
+  eq(r.items.length, 1);
+  eq(r.items[0].title, 'Wide shot');
+  eq(r.items[0].current, 'Line A\nLine B');
+  eq(r.items[0].images.length, 2);
+  eq(r.ignoredRows, 1);
+});
+
+test('a table without a Title row starts its own request', async () => {
+  const r = await parseTemplate(asFile(await makeDocx([
+    [['Title', 'One'], ['Description', 'First']],
+    [['Description', 'Orphan text']],
+  ])));
+  eq(r.items.map((i) => [i.title, i.current]), [['One', 'First'], ['', 'Orphan text']]);
 });

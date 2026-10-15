@@ -9,7 +9,7 @@ import { confirmDialog, progressOverlay, openModal } from '../ui/modal.js';
 import { openPopover, openMenu, closePopover } from '../ui/popover.js';
 import { plural, timeAgo, safeFileName, todayISO } from '../core/util.js';
 import { saveProject, openProject } from '../services/project-file.js';
-import { openNavigator } from './navigator.js';
+import { openNavigator, closeNavigator } from './navigator.js';
 
 /**
  * views: { [tab]: { mount(root, ws) -> cleanup? } }
@@ -100,6 +100,7 @@ export function createWorkspace({ def, store, views, tabs, tools = () => [] }) {
 
     return () => {
       closePopover();
+      closeNavigator();
       ctx.cleanupView?.();
       offs.forEach((off) => off());
       ctx = null;
