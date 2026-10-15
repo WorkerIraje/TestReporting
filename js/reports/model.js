@@ -1,42 +1,149 @@
-// Shared report model used by the PDF, DOCX and HTML generators and the Reporting tab.
+// Report documents and shared report assets. A report document is the neutral description of a
+// report (cover, summary, index, items, sign-off) that the PDF, DOCX and HTML renderers draw;
+// this file builds the test case document, enhancement-model.js the enhancement one.
 
 import { SEVERITY, APP } from '../core/config.js';
 import { testId, formatDate, isBlank } from '../core/util.js';
 import { fetchBinary } from '../core/loader.js';
 
-export function buildModel(store, { scope = 'all', layout = 'page' } = {}) {
+const STATUS_TONE = { Pass: 'pass', Fail: 'fail', Blocked: 'blocked' };
+const statusTone = (status) => STATUS_TONE[status] || 'none';
+const sevTone = (severity) => (SEVERITY.includes(severity) ? severity.toLowerCase() : null);
+
+/** Shared head of every report document. */
+export function documentHead({ title, subtitle, report, meta, keywords, now }) {
+  const generatedAt = now;
+  return {
+    title,
+    subtitle,
+    report,
+    author: report.preparedBy || 'Iraje Software',
+    keywords,
+    appName: APP.name,
+    generatedAt,
+    generatedLabel: formatDate(generatedAt, true),
+    coverFallback: 'Iraje Software · Quality Assurance',
+    meta: meta.map(([label, value]) => [label, isBlank(value) ? '—' : String(value)]),
+  };
+}
+
+export function buildTestCaseDocument(store, { scope = 'all', layout = 'page', now = new Date() } = {}) {
   const all = store.state.cases.map((c, i) => ({ ...c, tid: testId(i), index: i }));
   const cases = scope === 'defects' ? all.filter((c) => c.status === 'Fail' || c.status === 'Blocked') : all;
-  const stats = store.stats(all);
+  const s = store.stats(all);
   const r = store.state.report;
   const product = r.product?.trim() || '';
   const title = r.title?.trim() || `${product ? `${product} ` : ''}${scope === 'defects' ? 'Defect Report' : 'Test Execution Report'}`;
-  const generatedAt = new Date();
+  const ofTotal = (n) => (s.total ? `${pct(n / s.total)} of total` : '—');
+  const bar = [
+    { label: 'Pass', value: s.pass, tone: 'pass' },
+    { label: 'Fail', value: s.fail, tone: 'fail' },
+    { label: 'Blocked', value: s.blocked, tone: 'blocked' },
+    { label: 'Not run', value: s.notRun, tone: 'notrun' },
+  ];
+  const colored = (n, t) => ({ v: n, tone: n ? t : null });
+
   return {
-    title,
-    subtitle: scope === 'defects' ? 'Defect report · Fail and Blocked test cases' : 'Test execution report',
+    ...documentHead({
+      title,
+      subtitle: scope === 'defects' ? 'Defect report · Fail and Blocked test cases' : 'Test execution report',
+      report: r,
+      keywords: 'Iraje, QA, test report',
+      now,
+      meta: [
+        ['Product', product],
+        ['Build / Version', r.build],
+        ['Environment', r.environment],
+        ['Test Cycle', r.cycle],
+        ['Prepared By', r.preparedBy],
+        ['Reviewed By', r.reviewedBy],
+        ['Report Date', r.date ? formatDate(r.date) : formatDate(now)],
+        ['Test Cases in Report', `${cases.length.toLocaleString()}${scope === 'defects' ? ` of ${all.length.toLocaleString()}` : ''}`],
+      ],
+    }),
     scope,
     layout,
-    meta: [
-      ['Product', product],
-      ['Build / Version', r.build],
-      ['Environment', r.environment],
-      ['Test Cycle', r.cycle],
-      ['Prepared By', r.preparedBy],
-      ['Reviewed By', r.reviewedBy],
-      ['Report Date', r.date ? formatDate(r.date) : formatDate(generatedAt)],
-      ['Test Cases in Report', `${cases.length.toLocaleString()}${scope === 'defects' ? ` of ${all.length.toLocaleString()}` : ''}`],
-    ].map(([label, value]) => [label, isBlank(value) ? '—' : String(value)]),
-    report: r,
-    stats,
-    modules: moduleBreakdown(all),
-    severity: severityBreakdown(all),
-    cases,
-    all,
-    imageCount: cases.reduce((n, c) => n + c.images.length, 0),
-    generatedAt,
-    generatedLabel: formatDate(generatedAt, true),
-    appName: APP.name,
+    noun: { one: 'test case', many: 'test cases' },
+    headerLine: [product, r.build && `Build ${r.build}`, r.environment].filter(Boolean).join('  ·  '),
+    productParts: [product, r.build && `Build ${r.build}`].filter(Boolean),
+    glance: {
+      label: 'Results at a glance',
+      hero: { label: 'Pass rate', value: pct(s.passRate), sub: `${s.executed} of ${s.total} executed` },
+      tiles: [
+        { label: 'Pass', value: s.pass, sub: ofTotal(s.pass), tone: 'pass' },
+        { label: 'Fail', value: s.fail, sub: ofTotal(s.fail), tone: 'fail' },
+        { label: 'Blocked', value: s.blocked, sub: ofTotal(s.blocked), tone: 'blocked' },
+        { label: 'Not run', value: s.notRun, sub: ofTotal(s.notRun), tone: 'none' },
+      ],
+      bar,
+    },
+    summary: {
+      title: 'Executive summary',
+      kpis: [
+        { label: 'Total', value: s.total, tone: 'navy' },
+        { label: 'Executed', value: s.executed, tone: 'navy' },
+        { label: 'Pass', value: s.pass, tone: 'pass' },
+        { label: 'Fail', value: s.fail, tone: 'fail' },
+        { label: 'Blocked', value: s.blocked, tone: 'blocked' },
+        { label: 'Pass rate', value: pct(s.passRate), tone: 'blue', highlight: true },
+      ],
+      barLabel: 'Status split',
+      bar,
+      tables: [
+        {
+          title: 'Module-wise progress',
+          half: true,
+          cols: [{ head: 'Module / Feature' }, { head: 'Total', w: 16, dxa: 1100, align: 'right' }, { head: 'Pass', w: 16, dxa: 1100, align: 'right' }, { head: 'Fail', w: 16, dxa: 1100, align: 'right' },
+            { head: 'Blocked', w: 18, dxa: 1100, align: 'right' }, { head: 'Not run', w: 18, dxa: 1100, align: 'right' }, { head: 'Pass rate', w: 22, dxa: 1100, align: 'right', bold: true }],
+          rows: moduleBreakdown(all).map((m) => [m.name, m.total, colored(m.pass, 'pass'), colored(m.fail, 'fail'), colored(m.blocked, 'blocked'), m.notRun,
+            m.executed ? pct(m.passRate) : '—']),
+        },
+        {
+          title: 'Open issues by severity (Fail + Blocked)',
+          half: true,
+          cols: [{ head: 'Severity' }, { head: 'Fail', w: 24, dxa: 1500, align: 'right' }, { head: 'Blocked', w: 24, dxa: 1500, align: 'right' }, { head: 'Total', w: 24, dxa: 1500, align: 'right', bold: true }],
+          rows: severityBreakdown(all).map((x) => [{ v: x.name, tone: sevTone(x.name), bold: !!sevTone(x.name) }, x.fail, x.blocked, x.total]),
+        },
+      ],
+    },
+    index: {
+      title: 'Test case index',
+      cols: [{ head: 'ID', w: 17, dxa: 1100, bold: true, tone: 'blue' }, { head: 'Title / Description' }, { head: 'Module', w: 34, dxa: 2000 },
+        { head: 'Status', w: 19, dxa: 1200 }, { head: 'Severity', w: 19, dxa: 1200 }, { head: 'Shots', w: 13, dxa: 800, align: 'right' }],
+      rows: cases.map((c) => [c.tid, c.title || 'Untitled test case', c.module || '—',
+        { v: c.status || 'Not run', tone: statusTone(c.status), bold: true, badge: true },
+        { v: c.severity || '—', tone: sevTone(c.severity) }, c.images.length]),
+    },
+    items: cases.map((c) => ({
+      id: c.tid,
+      title: c.title,
+      untitled: 'Untitled test case',
+      badge: { text: c.status || 'Not run', tone: statusTone(c.status) },
+      accent: statusTone(c.status),
+      facts: [
+        { label: 'Module / Feature', value: c.module },
+        { label: 'Field / Control', value: c.field },
+        { label: 'Test Type', value: c.type },
+        { label: 'Account Type', value: c.account },
+        { label: 'Severity', value: c.severity, tone: sevTone(c.severity) },
+        { label: 'Tester', value: c.tester },
+      ],
+      factsPerRow: 3,
+      sections: [
+        c.pre ? { type: 'block', title: 'Preconditions', text: c.pre } : null,
+        { type: 'block', title: 'Test steps', text: c.steps },
+        c.data ? { type: 'block', title: 'Test data', text: c.data } : null,
+        { type: 'compare', left: { title: 'Expected result', text: c.expected }, right: { title: 'Actual result', text: c.actual }, tone: statusTone(c.status) },
+        c.comments ? { type: 'block', title: 'Comments / Defect ID', text: c.comments } : null,
+      ].filter(Boolean),
+      images: c.images,
+      evidenceLabel: 'Evidence',
+      filterKey: c.status ? c.status.toLowerCase() : 'none',
+      searchText: `${c.tid} ${c.title} ${c.module} ${c.field} ${c.steps} ${c.expected} ${c.actual} ${c.comments}`.toLowerCase(),
+    })),
+    filters: [{ key: 'all', label: 'All' }, { key: 'pass', label: 'Pass' }, { key: 'fail', label: 'Fail' }, { key: 'blocked', label: 'Blocked' }, { key: 'none', label: 'Not run' }],
+    searchPlaceholder: 'Search test cases…',
+    signoff: null,
   };
 }
 
@@ -72,14 +179,6 @@ export function severityBreakdown(cases) {
 }
 
 export const pct = (x) => `${(x * 100).toFixed(x === 0 || x === 1 ? 0 : 1)}%`;
-
-export const STATUS_COLORS = {
-  Pass: '#15803D',
-  Fail: '#D92D20',
-  Blocked: '#C4560C',
-  '': '#5B6680',
-};
-export const SEVERITY_COLORS = { Critical: '#9F1239', High: '#D92D20', Medium: '#C77700', Low: '#0E7490' };
 
 // ---- shared assets (logo, watermark) ----
 

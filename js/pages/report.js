@@ -10,7 +10,7 @@ import { openModal, progressOverlay } from '../ui/modal.js';
 import { openLightbox } from '../ui/lightbox.js';
 import { testId, plural, debounce, safeFileName, todayISO, nextFrame } from '../core/util.js';
 import { buildTestSheet } from '../services/template.js';
-import { buildModel, moduleBreakdown, severityBreakdown, pct } from '../reports/model.js';
+import { buildTestCaseDocument, moduleBreakdown, severityBreakdown, pct } from '../reports/model.js';
 
 const PAGE = 40;
 const FORMATS = [
@@ -261,8 +261,8 @@ async function chooseReport() {
 
 export async function generateReport({ format, scope, layout }) {
   const fmt = FORMATS.find((f) => f.key === format);
-  const model = buildModel(store, { scope, layout });
-  if (!model.cases.length) {
+  const model = buildTestCaseDocument(store, { scope, layout });
+  if (!model.items.length) {
     toast(scope === 'defects' ? 'There are no Fail or Blocked test cases to report.' : 'There are no test cases to report.', { type: 'warning' });
     return;
   }

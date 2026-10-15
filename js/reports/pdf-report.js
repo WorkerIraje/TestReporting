@@ -1,10 +1,11 @@
-// PDF report (A4) drawn with jsPDF: embedded Poppins for crisp text, a small Iraje logo
-// header and a faint "Iraje Software" watermark on every page, a clickable test case index,
+// PDF report (A4) drawn with jsPDF from a report document: embedded Poppins for crisp text, a small
+// Iraje logo header and a faint "Iraje Software" watermark on every page, a clickable index,
 // PDF bookmarks, and full-width screenshots kept at their aspect ratio.
 
 import { getJsPDF, fetchBinary } from '../core/loader.js';
 import { nextFrame } from '../core/util.js';
-import { loadLogo, loadShot, pct } from './model.js';
+import { loadLogo, loadShot } from './model.js';
+import { tone, rgb, cellValue, cellStyle } from './tones.js';
 
 const W = 210;
 const H = 297;
@@ -18,17 +19,17 @@ const PT = 0.3528; // mm per point
 const C = {
   blue: [4, 81, 204], navy: [29, 37, 72], ink: [67, 76, 107], muted: [104, 114, 144], faint: [152, 161, 183],
   line: [225, 231, 242], line2: [237, 241, 248], soft: [242, 246, 255], surface: [249, 251, 255], white: [255, 255, 255],
-  pass: [21, 128, 61], passBg: [231, 246, 236], fail: [217, 45, 32], failBg: [254, 236, 235], failSoft: [255, 248, 247],
-  blocked: [196, 86, 12], blockedBg: [255, 242, 229], blockedSoft: [255, 250, 244], none: [91, 102, 128], noneBg: [238, 241, 246],
-  critical: [159, 18, 57], high: [217, 45, 32], medium: [199, 119, 0], low: [14, 116, 144],
 };
-const STATUS = {
-  Pass: { fg: C.pass, bg: C.passBg, soft: C.white },
-  Fail: { fg: C.fail, bg: C.failBg, soft: C.failSoft },
-  Blocked: { fg: C.blocked, bg: C.blockedBg, soft: C.blockedSoft },
-  '': { fg: C.none, bg: C.noneBg, soft: C.white },
-};
-const SEV = { Critical: C.critical, High: C.high, Medium: C.medium, Low: C.low };
+
+const toneCache = new Map();
+/** Tone name -> { fg, bg, soft, border } as RGB arrays. */
+function T(key) {
+  if (!toneCache.has(key)) {
+    const t = tone(key);
+    toneCache.set(key, { fg: rgb(t.fg), bg: rgb(t.bg), soft: rgb(t.soft), border: rgb(t.border) });
+  }
+  return toneCache.get(key);
+}
 
 // ---- text sanitising: Poppins glyph coverage (Regular, SemiBold and Bold) ----
 
@@ -55,7 +56,7 @@ const SUBS = {
   '→': '->', '⟶': '->', '➔': '->', '➜': '->', '⇒': '=>', '←': '<-', '⟵': '<-', '⇐': '<=', '↔': '<->', '⇔': '<=>', '↑': '^', '↓': 'v',
   '✓': '(OK)', '✔': '(OK)', '☑': '[x]', '✗': '(X)', '✘': '(X)', '❌': '(X)', '✅': '(OK)', '☐': '[ ]',
   '●': '•', '○': 'o', '■': '•', '□': '[ ]', '▪': '•', '▫': '-', '◆': '•', '◇': '-', '►': '>', '▶': '>', '◄': '<', '◀': '<', '★': '*', '☆': '*',
-  '­': '', '​': '', '﻿': '', ' ': '\n', ' ': '\n', '‐': '-', '‑': '-', '‒': '-', '―': '—', '′': "'", '″': '"',
+  '­': '', '​': '', '﻿': '', ' ': '\n', ' ': '\n', '‐': '-', '‑': '-', '‒': '-', '―': '—', '′': "'", '″': '"',
 };
 
 function clean(value) {
@@ -127,16 +128,16 @@ export async function build(model, { store, onProgress = () => {} }) {
   doc.setProperties({
     title: clean(model.title),
     subject: clean(model.subtitle),
-    author: clean(model.report.preparedBy || 'Iraje Software'),
+    author: clean(model.author),
     creator: model.appName,
-    keywords: 'Iraje, QA, test report',
+    keywords: model.keywords,
   });
   doc.setLineHeightFactor(1.45);
   const autoTable = window.autoTable || ((d, o) => d.autoTable(o));
-  const s = model.stats;
+  const { glance, summary, index } = model;
   const logoH = 7.5;
   const logoW = (logo.w / logo.h) * logoH;
-  const headerLine = clean([model.report.product, model.report.build && `Build ${model.report.build}`, model.report.environment].filter(Boolean).join('  ·  '));
+  const headerLine = clean(model.headerLine);
   const decorated = new Set();
   let y = TOP;
 
@@ -262,6 +263,33 @@ export async function build(model, { store, onProgress = () => {} }) {
     willDrawPage: () => decorate(),
   };
 
+  /** Table options for a document table ({ cols, rows }); cells carry their own tone / bold. */
+  function tableOptions(t, extra = {}) {
+    const columnStyles = {};
+    t.cols.forEach((c, i) => {
+      const st = {};
+      if (c.align) st.halign = c.align;
+      if (c.w) st.cellWidth = c.w;
+      if (c.bold) st.fontStyle = 'bold';
+      if (c.tone) st.textColor = T(c.tone).fg;
+      if (Object.keys(st).length) columnStyles[i] = st;
+    });
+    return {
+      ...tableBase,
+      startY: y,
+      head: [t.cols.map((c) => c.head)],
+      body: t.rows.map((r) => r.map((c) => { const v = cellValue(c); return typeof v === 'string' ? clean(v) : v; })),
+      columnStyles,
+      didParseCell: (d) => {
+        if (d.section !== 'body') return;
+        const st = cellStyle(t.rows[d.row.index][d.column.index]);
+        if (st.tone) d.cell.styles.textColor = T(st.tone).fg;
+        if (st.bold) d.cell.styles.fontStyle = 'bold';
+      },
+      ...extra,
+    };
+  }
+
   // ---------- cover ----------
   onProgress(0.06, 'Designing the cover…');
   decorate();
@@ -276,7 +304,7 @@ export async function build(model, { store, onProgress = () => {} }) {
   }
   y += 2;
   font('normal', 11.5, C.muted);
-  doc.text(fit(headerLine || 'Iraje Software · Quality Assurance', CW), ML, y, { baseline: 'top' });
+  doc.text(fit(headerLine || model.coverFallback, CW), ML, y, { baseline: 'top' });
   y += 14;
 
   const boxW = (CW - 5) / 2;
@@ -299,59 +327,60 @@ export async function build(model, { store, onProgress = () => {} }) {
   }
 
   y += 6;
-  label('Results at a glance');
+  label(glance.label);
   y += 6;
   const rateW = 52;
   fill(C.blue);
   doc.roundedRect(ML, y, rateW, 36, 3, 3, 'F');
   font('bold', 7.2, C.white);
-  doc.text('PASS RATE', ML + 6, y + 6, { baseline: 'top', charSpace: 0.4 });
+  doc.text(clean(glance.hero.label).toUpperCase(), ML + 6, y + 6, { baseline: 'top', charSpace: 0.4 });
   font('heavy', 26, C.white);
-  doc.text(pct(s.passRate), ML + 6, y + 12, { baseline: 'top' });
+  doc.text(clean(String(glance.hero.value)), ML + 6, y + 12, { baseline: 'top' });
   font('normal', 7.5, C.white);
-  doc.text(`${s.executed} of ${s.total} executed`, ML + 6, y + 27.5, { baseline: 'top' });
-  const tiles = [['Pass', s.pass, C.pass], ['Fail', s.fail, C.fail], ['Blocked', s.blocked, C.blocked], ['Not run', s.notRun, C.none]];
-  const tw = (CW - rateW - 4 * 4) / 4;
-  tiles.forEach(([name, n, color], i) => {
+  doc.text(clean(glance.hero.sub), ML + 6, y + 27.5, { baseline: 'top' });
+  const tiles = glance.tiles;
+  const tw = (CW - rateW - tiles.length * 4) / tiles.length;
+  tiles.forEach((t, i) => {
     const x = ML + rateW + 4 + i * (tw + 4);
+    const color = T(t.tone).fg;
     fill(C.white);
     stroke(C.line);
     doc.roundedRect(x, y, tw, 36, 3, 3, 'FD');
     fill(color);
     doc.rect(x + 3, y + 33.4, tw - 6, 1.2, 'F');
     font('bold', 7, C.muted);
-    doc.text(name.toUpperCase(), x + 4.5, y + 6, { baseline: 'top', charSpace: 0.3 });
+    doc.text(clean(t.label).toUpperCase(), x + 4.5, y + 6, { baseline: 'top', charSpace: 0.3 });
     font('heavy', 20, color);
-    doc.text(String(n), x + 4.5, y + 12.5, { baseline: 'top' });
+    doc.text(String(t.value), x + 4.5, y + 12.5, { baseline: 'top' });
     font('normal', 7, C.faint);
-    doc.text(s.total ? `${pct(n / s.total)} of total` : '—', x + 4.5, y + 25, { baseline: 'top' });
+    doc.text(clean(t.sub), x + 4.5, y + 25, { baseline: 'top' });
   });
   y += 44;
-  drawSplitBar(y);
+  drawSplitBar(y, glance.bar);
   y += 12;
   font('normal', 8, C.muted);
   doc.text(clean(`Generated by ${model.appName} on ${model.generatedLabel}.`), ML, BOTTOM - 6, { baseline: 'top' });
 
-  function drawSplitBar(at) {
-    const parts = [[s.pass, C.pass], [s.fail, C.fail], [s.blocked, C.blocked], [s.notRun, [201, 209, 224]]];
+  function drawSplitBar(at, bar) {
+    const total = bar.reduce((n, b) => n + b.value, 0);
     fill(C.line2);
     doc.roundedRect(ML, at, CW, 4, 2, 2, 'F');
     let x = ML;
-    for (const [n, color] of parts) {
-      if (!n || !s.total) continue;
-      const w = (n / s.total) * CW;
-      fill(color);
+    for (const b of bar) {
+      if (!b.value || !total) continue;
+      const w = (b.value / total) * CW;
+      fill(T(b.tone).fg);
       doc.rect(x, at, w, 4, 'F');
       x += w;
     }
     // legend
     let lx = ML;
     const ly = at + 6.5;
-    for (const [name, n, color] of [['Pass', s.pass, C.pass], ['Fail', s.fail, C.fail], ['Blocked', s.blocked, C.blocked], ['Not run', s.notRun, [201, 209, 224]]]) {
-      fill(color);
+    for (const b of bar) {
+      fill(T(b.tone).fg);
       doc.roundedRect(lx, ly + 0.6, 2.6, 2.6, 0.6, 0.6, 'F');
       font('normal', 7.8, C.ink);
-      const t = `${name} ${n}`;
+      const t = clean(`${b.label} ${b.value}`);
       doc.text(t, lx + 4, ly, { baseline: 'top' });
       lx += doc.getTextWidth(t) + 11;
     }
@@ -360,163 +389,121 @@ export async function build(model, { store, onProgress = () => {} }) {
   // ---------- executive summary ----------
   onProgress(0.1, 'Writing the executive summary…');
   newPage();
-  sectionTitle('Executive summary');
-  const kw = (CW - 5 * 3.2) / 6;
-  [['Total', s.total, C.navy], ['Executed', s.executed, C.navy], ['Pass', s.pass, C.pass], ['Fail', s.fail, C.fail], ['Blocked', s.blocked, C.blocked], ['Pass rate', pct(s.passRate), C.blue]]
-    .forEach(([name, v, color], i) => {
-      const x = ML + i * (kw + 3.2);
-      fill(C.white);
-      stroke(C.line);
-      doc.roundedRect(x, y, kw, 22, 2.5, 2.5, 'FD');
-      fill(color);
-      doc.rect(x + 2.5, y + 20.2, kw - 5, 1, 'F');
-      font('bold', 6.6, C.muted);
-      doc.text(name.toUpperCase(), x + 3.5, y + 4, { baseline: 'top', charSpace: 0.25 });
-      font('heavy', 15, color);
-      doc.text(String(v), x + 3.5, y + 9.2, { baseline: 'top' });
-    });
+  sectionTitle(summary.title);
+  const kpis = summary.kpis;
+  const kw = (CW - (kpis.length - 1) * 3.2) / kpis.length;
+  kpis.forEach((k, i) => {
+    const x = ML + i * (kw + 3.2);
+    const color = T(k.tone).fg;
+    fill(C.white);
+    stroke(C.line);
+    doc.roundedRect(x, y, kw, 22, 2.5, 2.5, 'FD');
+    fill(color);
+    doc.rect(x + 2.5, y + 20.2, kw - 5, 1, 'F');
+    font('bold', 6.6, C.muted);
+    doc.text(clean(k.label).toUpperCase(), x + 3.5, y + 4, { baseline: 'top', charSpace: 0.25 });
+    font('heavy', 15, color);
+    doc.text(clean(String(k.value)), x + 3.5, y + 9.2, { baseline: 'top' });
+  });
   y += 28;
-  label('Status split');
+  label(summary.barLabel);
   y += 5.5;
-  drawSplitBar(y);
+  drawSplitBar(y, summary.bar);
   y += 16;
 
-  label('Module-wise progress');
-  y += 5;
-  autoTable(doc, {
-    ...tableBase,
-    startY: y,
-    head: [['Module / Feature', 'Total', 'Pass', 'Fail', 'Blocked', 'Not run', 'Pass rate']],
-    body: model.modules.map((m) => [clean(m.name), m.total, m.pass, m.fail, m.blocked, m.notRun, m.executed ? pct(m.passRate) : '—']),
-    columnStyles: { 1: { halign: 'right', cellWidth: 16 }, 2: { halign: 'right', cellWidth: 16 }, 3: { halign: 'right', cellWidth: 16 }, 4: { halign: 'right', cellWidth: 18 }, 5: { halign: 'right', cellWidth: 18 }, 6: { halign: 'right', cellWidth: 22 } },
-    didParseCell: (d) => {
-      if (d.section !== 'body') return;
-      if (d.column.index === 2 && d.cell.raw) d.cell.styles.textColor = C.pass;
-      if (d.column.index === 3 && d.cell.raw) d.cell.styles.textColor = C.fail;
-      if (d.column.index === 4 && d.cell.raw) d.cell.styles.textColor = C.blocked;
-      if (d.column.index === 6) d.cell.styles.fontStyle = 'bold';
-    },
+  summary.tables.forEach((t, i) => {
+    if (i) ensure(40);
+    label(t.title);
+    y += 5;
+    autoTable(doc, tableOptions(t));
+    y = doc.lastAutoTable.finalY + (i < summary.tables.length - 1 ? 9 : 6);
   });
-  y = doc.lastAutoTable.finalY + 9;
-  ensure(40);
-  label('Open issues by severity (Fail + Blocked)');
-  y += 5;
-  autoTable(doc, {
-    ...tableBase,
-    startY: y,
-    head: [['Severity', 'Fail', 'Blocked', 'Total']],
-    body: model.severity.map((r) => [r.name, r.fail, r.blocked, r.total]),
-    columnStyles: { 1: { halign: 'right', cellWidth: 24 }, 2: { halign: 'right', cellWidth: 24 }, 3: { halign: 'right', cellWidth: 24, fontStyle: 'bold' } },
-    didParseCell: (d) => {
-      if (d.section === 'body' && d.column.index === 0 && SEV[d.cell.raw]) {
-        d.cell.styles.textColor = SEV[d.cell.raw];
-        d.cell.styles.fontStyle = 'bold';
-      }
-    },
-  });
-  y = doc.lastAutoTable.finalY + 6;
   const summaryPage = 2;
 
   // ---------- index ----------
-  onProgress(0.14, 'Building the test case index…');
+  onProgress(0.14, `Building the ${index.title.toLowerCase()}…`);
   newPage();
   const indexPage = page();
-  sectionTitle('Test case index');
+  sectionTitle(index.title);
   const links = [];
-  autoTable(doc, {
-    ...tableBase,
-    startY: y,
-    head: [['ID', 'Title / Description', 'Module', 'Status', 'Severity', 'Shots']],
-    body: model.cases.map((c) => [c.tid, clean(c.title || 'Untitled test case'), clean(c.module || '—'), c.status || 'Not run', c.severity || '—', c.images.length]),
-    columnStyles: { 0: { cellWidth: 17, fontStyle: 'bold', textColor: C.blue }, 2: { cellWidth: 34 }, 3: { cellWidth: 19 }, 4: { cellWidth: 19 }, 5: { cellWidth: 13, halign: 'right' } },
-    didParseCell: (d) => {
-      if (d.section !== 'body') return;
-      if (d.column.index === 3) {
-        d.cell.styles.textColor = (STATUS[d.cell.raw] || STATUS['']).fg;
-        d.cell.styles.fontStyle = 'bold';
-      }
-      if (d.column.index === 4 && SEV[d.cell.raw]) d.cell.styles.textColor = SEV[d.cell.raw];
-    },
+  autoTable(doc, tableOptions(index, {
     didDrawCell: (d) => {
       if (d.section === 'body' && d.column.index === 0) {
         links.push({ page: page(), x: d.cell.x, y: d.cell.y, w: d.cell.width, h: d.cell.height, i: d.row.index });
       }
     },
-  });
+  }));
   y = doc.lastAutoTable.finalY + 6;
 
-  // ---------- test cases ----------
-  const casePage = [];
-  const total = model.cases.length;
+  // ---------- items ----------
+  const itemPage = [];
+  const total = model.items.length;
   for (let k = 0; k < total; k++) {
-    const c = model.cases[k];
-    onProgress(0.16 + (k / total) * 0.8, `Laying out ${c.tid} (${k + 1} of ${total})…`);
+    const item = model.items[k];
+    onProgress(0.16 + (k / total) * 0.8, `Laying out ${item.id} (${k + 1} of ${total})…`);
     if (model.layout === 'page' || k === 0) newPage();
     else {
       y += 6;
       ensure(60);
     }
-    casePage[k] = page();
-    await drawCase(c);
+    itemPage[k] = page();
+    await drawItem(item);
     await nextFrame();
   }
 
-  async function drawCase(c) {
-    const st = STATUS[c.status] || STATUS[''];
+  async function drawItem(item) {
     // title band
     font('bold', 12);
-    const statusText = c.status || 'Not run';
+    const statusText = clean(item.badge.text);
     font('bold', 7.8);
     const badgeW = doc.getTextWidth(statusText) + 8;
     const idW = 20;
     font('bold', 12);
-    const titleLines = split(c.title || 'Untitled test case', CW - idW - badgeW - 16).slice(0, 6);
+    const titleLines = split(item.title || item.untitled, CW - idW - badgeW - 16).slice(0, 6);
     const bandH = Math.max(15, 8 + titleLines.length * lh(12));
     ensure(bandH + 30);
     fill(C.soft);
     doc.roundedRect(ML, y, CW, bandH, 3, 3, 'F');
-    fill(st.fg);
+    fill(T(item.accent).fg);
     doc.roundedRect(ML, y, 2.4, bandH, 1.2, 1.2, 'F');
     font('heavy', 10.5, C.blue);
-    doc.text(c.tid, ML + 6, y + 4.2, { baseline: 'top' });
+    doc.text(item.id, ML + 6, y + 4.2, { baseline: 'top' });
     font('bold', 12, C.navy);
     doc.text(titleLines, ML + 6 + idW, y + 4, { baseline: 'top' });
-    badge(statusText, W - MR - 4, y + 4.2, st);
+    badge(statusText, W - MR - 4, y + 4.2, T(item.badge.tone));
     y += bandH + 4;
 
     // facts
-    const facts = [['Module / Feature', c.module], ['Field / Control', c.field], ['Test Type', c.type], ['Account Type', c.account], ['Severity', c.severity], ['Tester', c.tester]];
-    const fw = (CW - 2 * 3) / 3;
-    for (let r = 0; r < facts.length; r += 3) {
-      const row = facts.slice(r, r + 3);
+    const per = item.factsPerRow;
+    const fw = (CW - (per - 1) * 3) / per;
+    for (let r = 0; r < item.facts.length; r += per) {
+      const row = item.facts.slice(r, r + per);
       font('bold', 8.8);
-      const lines = row.map(([, v]) => split(v || '—', fw - 7).slice(0, 4));
+      const lines = row.map((f) => split(f.value || '—', fw - 7).slice(0, 4));
       const fh = 8.6 + Math.max(...lines.map((l) => l.length)) * lh(8.8);
       ensure(fh + 2);
-      row.forEach(([k], j) => {
+      row.forEach((f, j) => {
         const x = ML + j * (fw + 3);
         fill(C.surface);
         stroke(C.line2);
         doc.roundedRect(x, y, fw, fh, 2, 2, 'FD');
         font('bold', 6.3, C.muted);
-        doc.text(k.toUpperCase(), x + 3.5, y + 2.6, { baseline: 'top', charSpace: 0.25 });
-        const sevColor = k === 'Severity' && SEV[row[j][1]];
-        font('bold', 8.8, sevColor || (row[j][1] ? C.navy : C.faint));
+        doc.text(clean(f.label).toUpperCase(), x + 3.5, y + 2.6, { baseline: 'top', charSpace: 0.25 });
+        font('bold', 8.8, f.tone && f.value ? T(f.tone).fg : (f.value ? C.navy : C.faint));
         doc.text(lines[j], x + 3.5, y + 6.4, { baseline: 'top' });
       });
       y += fh + 3;
     }
     y += 2;
 
-    if (c.pre) section('Preconditions', c.pre);
-    section('Test steps', c.steps);
-    if (c.data) section('Test data', c.data);
-    compare(c, st);
-    if (c.comments) section('Comments / Defect ID', c.comments);
+    for (const s of item.sections) {
+      if (s.type === 'compare') compare(s);
+      else section(s.title, s.text);
+    }
 
-    if (c.images.length) {
+    if (item.images.length) {
       const shots = [];
-      for (const id of c.images) {
+      for (const id of item.images) {
         const shot = await loadShot(store, id);
         if (shot) shots.push({ id, shot: await prepareShot(shot) });
       }
@@ -531,7 +518,7 @@ export async function build(model, { store, onProgress = () => {} }) {
       };
       // keep the heading together with (at least a readable part of) the first screenshot
       if (shots.length) ensure(6 + Math.min(sizeOf(shots[0].shot).h, 70) + 9);
-      label(`Evidence · ${c.images.length} screenshot${c.images.length > 1 ? 's' : ''}`);
+      label(`${item.evidenceLabel} · ${item.images.length} screenshot${item.images.length > 1 ? 's' : ''}`);
       y += 6;
       for (let n = 0; n < shots.length; n++) {
         const { shot } = shots[n];
@@ -551,33 +538,34 @@ export async function build(model, { store, onProgress = () => {} }) {
         doc.addImage(shot.bytes, shot.format, x, y, w, h, shots[n].id, 'FAST');
         y += h + 2.2;
         font('normal', 7.3, C.muted);
-        doc.text(`${c.tid} · Screenshot ${n + 1} of ${shots.length}`, W / 2, y, { align: 'center', baseline: 'top' });
+        doc.text(`${item.id} · Screenshot ${n + 1} of ${shots.length}`, W / 2, y, { align: 'center', baseline: 'top' });
         y += 7;
       }
     }
   }
 
-  function compare(c, st) {
+  function compare(s) {
     const colW = (CW - 4) / 2;
     font('normal', 9.3);
-    const a = split(c.expected || '—', colW - 8);
-    const b = split(c.actual || '—', colW - 8);
+    const a = split(s.left.text || '—', colW - 8);
+    const b = split(s.right.text || '—', colW - 8);
     const step = lh(9.3);
     const boxH = 11 + Math.max(a.length, b.length) * step;
     if (boxH > BOTTOM - TOP - 4) {
-      section('Expected result', c.expected);
-      section('Actual result', c.actual);
+      section(s.left.title, s.left.text);
+      section(s.right.title, s.right.text);
       return;
     }
     ensure(boxH + 2);
-    [[a, 'Expected result', C.blue, C.surface, C.line2], [b, 'Actual result', C.ink, st.soft, c.status === 'Fail' ? [249, 182, 176] : c.status === 'Blocked' ? [249, 201, 154] : C.line2]]
+    const t = T(s.tone);
+    [[a, s.left.title, C.blue, C.surface, C.line2], [b, s.right.title, C.ink, t.soft, t.border]]
       .forEach(([lines, title, color, bg, border], j) => {
         const x = ML + j * (colW + 4);
         fill(bg);
         stroke(border, 0.3);
         doc.roundedRect(x, y, colW, boxH, 2.5, 2.5, 'FD');
         font('bold', 7.2, color);
-        doc.text(title.toUpperCase(), x + 4, y + 3.4, { baseline: 'top', charSpace: 0.35 });
+        doc.text(clean(title).toUpperCase(), x + 4, y + 3.4, { baseline: 'top', charSpace: 0.35 });
         font('normal', 9.3, C.ink);
         doc.text(lines, x + 4, y + 8.4, { baseline: 'top' });
       });
@@ -588,14 +576,14 @@ export async function build(model, { store, onProgress = () => {} }) {
   onProgress(0.97, 'Numbering pages…');
   for (const l of links) {
     doc.setPage(l.page);
-    doc.link(l.x, l.y, l.w, l.h, { pageNumber: casePage[l.i] });
+    doc.link(l.x, l.y, l.w, l.h, { pageNumber: itemPage[l.i] });
   }
   try {
-    const ascii = (t) => clean(t).replace(/[^\x20-\x7E -ÿ]/g, '');
+    const ascii = (t) => clean(t).replace(/[^\x20-\x7E -ÿ]/g, '');
     doc.outline.add(null, 'Cover', { pageNumber: 1 });
-    doc.outline.add(null, 'Executive summary', { pageNumber: summaryPage });
-    const idx = doc.outline.add(null, 'Test case index', { pageNumber: indexPage });
-    model.cases.forEach((c, k) => doc.outline.add(idx, ascii(`${c.tid}  ${c.title || 'Untitled'}`).slice(0, 90), { pageNumber: casePage[k] }));
+    doc.outline.add(null, summary.title, { pageNumber: summaryPage });
+    const idx = doc.outline.add(null, index.title, { pageNumber: indexPage });
+    model.items.forEach((item, k) => doc.outline.add(idx, ascii(`${item.id}  ${item.title || 'Untitled'}`).slice(0, 90), { pageNumber: itemPage[k] }));
   } catch (err) {
     console.warn('PDF outline skipped', err);
   }

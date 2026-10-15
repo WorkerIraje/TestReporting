@@ -1,42 +1,37 @@
-// Word (DOCX) report built with the docx library. Uses Segoe UI (the template's font),
-// a small Iraje logo in the page header, an "Iraje Software" watermark behind the text on
-// every page, a linked test case index and full-width screenshots.
+// Word (DOCX) report built from a report document with the docx library. Uses Segoe UI (the
+// template's font), the branded page frame (logo header, watermark behind the text, footer),
+// a linked index and full-width screenshots.
 
 import { getDocx } from '../core/loader.js';
 import { nextFrame } from '../core/util.js';
-import { loadLogo, loadShot, watermarkPng, pct } from './model.js';
+import { loadShot } from './model.js';
+import { brandParts, FONT, CONTENT } from './docx-brand.js';
+import { tone, docxHex, cellValue, cellStyle } from './tones.js';
 
-const FONT = 'Segoe UI';
-const PAGE_W = 11906; // A4 in twips
-const PAGE_H = 16838;
-const MARGIN_X = 1000;
-const CONTENT = PAGE_W - MARGIN_X * 2; // twips
 const CONTENT_PX = Math.floor((CONTENT / 1440) * 96); // ~660 px
 const COL = {
   blue: '0451CC', navy: '1D2548', ink: '434C6B', muted: '687290', faint: '98A1B7', line: 'E1E7F2', line2: 'EDF1F8',
   soft: 'F2F6FF', surface: 'F9FBFF', white: 'FFFFFF',
-  pass: '15803D', passBg: 'E7F6EC', fail: 'D92D20', failBg: 'FEECEB', blocked: 'C4560C', blockedBg: 'FFF2E5', none: '5B6680', noneBg: 'EEF1F6',
 };
-const STATUS = {
-  Pass: { fg: COL.pass, bg: COL.passBg, soft: COL.white },
-  Fail: { fg: COL.fail, bg: COL.failBg, soft: 'FFF8F7' },
-  Blocked: { fg: COL.blocked, bg: COL.blockedBg, soft: 'FFFAF4' },
-  '': { fg: COL.none, bg: COL.noneBg, soft: COL.white },
-};
-const SEV = { Critical: '9F1239', High: 'D92D20', Medium: 'C77700', Low: '0E7490' };
 
-const anchor = (tid) => tid.replace('-', '_');
+/** Tone name -> { fg, bg, soft, border } as RRGGBB. */
+function D(key) {
+  const t = tone(key);
+  return { fg: docxHex(t.fg), bg: docxHex(t.bg), soft: docxHex(t.soft), border: docxHex(t.border) };
+}
+
+const anchor = (id) => id.replace('-', '_');
 
 export async function build(model, { store, onProgress = () => {} }) {
   onProgress(0.02, 'Loading the Word engine…');
   const d = await getDocx();
   const {
-    Document, Packer, Paragraph, TextRun, ImageRun, Header, Footer, Table, TableRow, TableCell, WidthType, AlignmentType,
-    BorderStyle, ShadingType, PageNumber, HorizontalPositionRelativeFrom, VerticalPositionRelativeFrom, HorizontalPositionAlign,
-    VerticalPositionAlign, TextWrappingType, HeadingLevel, TabStopType, VerticalAlignTable, InternalHyperlink, Bookmark, TableLayoutType, Tab,
+    Document, Packer, Paragraph, TextRun, ImageRun, Table, TableRow, TableCell, WidthType, AlignmentType,
+    BorderStyle, ShadingType, HeadingLevel, VerticalAlignTable, InternalHyperlink, Bookmark, TableLayoutType,
   } = d;
-  const [logo, mark] = await Promise.all([loadLogo(), watermarkPng()]);
-  const s = model.stats;
+  const { glance, summary, index } = model;
+  const productLine = model.productParts.join('  ·  ');
+  const { header, footer, page } = await brandParts(d, { title: model.title, productLine, generatedLabel: model.generatedLabel });
 
   // ---------- helpers ----------
   const run = (text, o = {}) => new TextRun({ text: String(text ?? ''), font: FONT, size: o.size ?? 20, bold: o.bold, color: o.color ?? COL.ink, characterSpacing: o.spacing, italics: o.italics });
@@ -74,22 +69,33 @@ export async function build(model, { store, onProgress = () => {} }) {
     layout: TableLayoutType.FIXED,
     borders: o.borders ?? { top: none, bottom: none, left: none, right: none, insideHorizontal: none, insideVertical: none },
   });
+  const gridBorders = { top: none, bottom: none, left: none, right: none, insideHorizontal: { style: BorderStyle.SINGLE, size: 24, color: COL.white }, insideVertical: { style: BorderStyle.SINGLE, size: 24, color: COL.white } };
   const spacer = (after = 160) => para(run(''), { after, line: 240 });
   const heading = (text, o = {}) => para([run(text, { bold: true, size: 32, color: COL.navy })], {
     heading: HeadingLevel.HEADING_1, after: 200, pageBreak: o.pageBreak, keepNext: true,
     border: { left: { style: BorderStyle.SINGLE, size: 36, color: COL.blue, space: 8 } },
   });
-  const dataTable = (head, rows, widths, style = () => ({})) => table([
+  /** Column widths in twips: fixed `dxa` columns, the remaining width to the column without one. */
+  const widthsOf = (cols) => {
+    const fixed = cols.reduce((n, c) => n + (c.dxa || 0), 0);
+    return cols.map((c) => c.dxa || CONTENT - fixed);
+  };
+  const dataTable = (t, widths, linkFirst = false) => table([
     new TableRow({
       tableHeader: true,
-      children: head.map((t, i) => cell(para(caps(t, COL.navy, 14), { after: 0, align: i && typeof rows[0]?.[i] === 'number' ? AlignmentType.RIGHT : undefined }), { width: widths[i], fill: COL.soft, borders: { top: none, left: none, right: none, bottom: thin(COL.line) }, pad: 70 })),
+      children: t.cols.map((c, i) => cell(para(caps(c.head, COL.navy, 14), { after: 0, align: i && typeof cellValue(t.rows[0]?.[i]) === 'number' ? AlignmentType.RIGHT : undefined }), { width: widths[i], fill: COL.soft, borders: { top: none, left: none, right: none, bottom: thin(COL.line) }, pad: 70 })),
     }),
-    ...rows.map((r, ri) => new TableRow({
+    ...t.rows.map((r, ri) => new TableRow({
       cantSplit: true,
-      children: r.map((v, i) => {
-        const st = style(v, i, ri) || {};
+      children: r.map((c, i) => {
+        const v = cellValue(c);
+        const st = cellStyle(c);
         const num = typeof v === 'number';
-        return cell(para(st.children || run(v, { size: 17, bold: st.bold, color: st.color ?? COL.ink }), { after: 0, align: num ? AlignmentType.RIGHT : undefined }),
+        const bold = st.bold || t.cols[i].bold;
+        const child = linkFirst && i === 0
+          ? new InternalHyperlink({ anchor: anchor(String(v)), children: [new TextRun({ text: String(v), font: FONT, size: 17, bold: true, color: COL.blue, underline: {} })] })
+          : run(v, { size: 17, bold, color: st.tone ? D(st.tone).fg : COL.ink });
+        return cell(para(child, { after: 0, align: num ? AlignmentType.RIGHT : undefined }),
           { width: widths[i], fill: ri % 2 ? 'FCFDFF' : undefined, borders: { top: none, left: none, right: none, bottom: thin(COL.line2) }, pad: 60 });
       }),
     })),
@@ -101,48 +107,6 @@ export async function build(model, { store, onProgress = () => {} }) {
     return { width: Math.round(width), height: Math.round(height) };
   };
 
-  // ---------- header / footer (every page) ----------
-  const logoH = 26;
-  const productLine = [model.report.product, model.report.build && `Build ${model.report.build}`].filter(Boolean).join('  ·  ');
-  const header = new Header({
-    children: [
-      new Paragraph({
-        tabStops: [{ type: TabStopType.RIGHT, position: CONTENT }],
-        border: { bottom: { style: BorderStyle.SINGLE, size: 8, color: COL.blue, space: 4 } },
-        spacing: { after: 0 },
-        children: [
-          new ImageRun({ type: 'png', data: logo.bytes, transformation: { width: Math.round((logo.w / logo.h) * logoH), height: logoH } }),
-          new ImageRun({
-            type: 'png',
-            data: mark,
-            transformation: { width: 620, height: 797 },
-            floating: {
-              horizontalPosition: { relative: HorizontalPositionRelativeFrom.PAGE, align: HorizontalPositionAlign.CENTER },
-              verticalPosition: { relative: VerticalPositionRelativeFrom.PAGE, align: VerticalPositionAlign.CENTER },
-              behindDocument: true,
-              allowOverlap: true,
-              wrap: { type: TextWrappingType.NONE },
-            },
-          }),
-          new TextRun({ children: [new Tab()] }),
-          run(model.title, { size: 15, bold: true, color: COL.navy }),
-          ...(productLine ? [run(`   ${productLine}`, { size: 14, color: COL.muted })] : []),
-        ],
-      }),
-    ],
-  });
-  const footer = new Footer({
-    children: [new Paragraph({
-      tabStops: [{ type: TabStopType.CENTER, position: CONTENT / 2 }, { type: TabStopType.RIGHT, position: CONTENT }],
-      border: { top: { style: BorderStyle.SINGLE, size: 4, color: COL.line, space: 4 } },
-      children: [
-        run('Iraje Software  ·  Iraje QA Management', { size: 14, color: COL.muted }),
-        new TextRun({ children: [new Tab(), model.generatedLabel], font: FONT, size: 14, color: COL.muted }),
-        new TextRun({ children: [new Tab(), 'Page ', PageNumber.CURRENT, ' of ', PageNumber.TOTAL_PAGES], font: FONT, size: 14, bold: true, color: COL.navy }),
-      ],
-    })],
-  });
-
   const children = [];
   const push = (...x) => children.push(...x);
 
@@ -151,7 +115,7 @@ export async function build(model, { store, onProgress = () => {} }) {
   push(spacer(900));
   push(para(caps(model.subtitle, COL.blue, 18), { after: 120 }));
   push(para(run(model.title, { size: 52, bold: true, color: COL.navy }), { after: 120, line: 280 }));
-  push(para(run(productLine || 'Iraje Software · Quality Assurance', { size: 24, color: COL.muted }), { after: 480 }));
+  push(para(run(productLine || model.coverFallback, { size: 24, color: COL.muted }), { after: 480 }));
   const half = Math.floor(CONTENT / 2);
   const metaRows = [];
   for (let i = 0; i < model.meta.length; i += 2) {
@@ -161,10 +125,10 @@ export async function build(model, { store, onProgress = () => {} }) {
         { width: half, fill: COL.surface, border: COL.white, pad: 120, padX: 180 })),
     }));
   }
-  push(table(metaRows, [half, CONTENT - half], { borders: { top: none, bottom: none, left: none, right: none, insideHorizontal: { style: BorderStyle.SINGLE, size: 24, color: COL.white }, insideVertical: { style: BorderStyle.SINGLE, size: 24, color: COL.white } } }));
+  push(table(metaRows, [half, CONTENT - half], { borders: gridBorders }));
   push(spacer(360));
-  push(para(caps('Results at a glance'), { after: 120 }));
-  const tileW = Math.floor(CONTENT / 5);
+  push(para(caps(glance.label), { after: 120 }));
+  const tileW = Math.floor(CONTENT / (glance.tiles.length + 1));
   const tile = (label, value, sub, fg, fill) => cell([
     para(caps(label, fill === COL.blue ? COL.white : COL.muted, 13), { after: 40 }),
     para(run(value, { size: 40, bold: true, color: fg }), { after: 20, line: 240 }),
@@ -172,124 +136,106 @@ export async function build(model, { store, onProgress = () => {} }) {
   ], { width: tileW, fill, border: COL.white, pad: 140, padX: 160 });
   push(table([new TableRow({
     children: [
-      tile('Pass rate', pct(s.passRate), `${s.executed} of ${s.total} executed`, COL.white, COL.blue),
-      tile('Pass', String(s.pass), s.total ? `${pct(s.pass / s.total)} of total` : '—', COL.pass, COL.passBg),
-      tile('Fail', String(s.fail), s.total ? `${pct(s.fail / s.total)} of total` : '—', COL.fail, COL.failBg),
-      tile('Blocked', String(s.blocked), s.total ? `${pct(s.blocked / s.total)} of total` : '—', COL.blocked, COL.blockedBg),
-      tile('Not run', String(s.notRun), s.total ? `${pct(s.notRun / s.total)} of total` : '—', COL.none, COL.noneBg),
+      tile(glance.hero.label, String(glance.hero.value), glance.hero.sub, COL.white, COL.blue),
+      ...glance.tiles.map((t) => tile(t.label, String(t.value), t.sub, D(t.tone).fg, D(t.tone).bg)),
     ],
-  })], Array(5).fill(tileW), { borders: { top: none, bottom: none, left: none, right: none, insideHorizontal: none, insideVertical: { style: BorderStyle.SINGLE, size: 24, color: COL.white } } }));
+  })], Array(glance.tiles.length + 1).fill(tileW), { borders: { top: none, bottom: none, left: none, right: none, insideHorizontal: none, insideVertical: { style: BorderStyle.SINGLE, size: 24, color: COL.white } } }));
   push(spacer(120));
-  push(splitBar());
+  push(splitBar(glance.bar));
   push(spacer(600));
   push(para(run(`Generated by ${model.appName} on ${model.generatedLabel}.`, { size: 16, color: COL.muted })));
 
-  function splitBar() {
-    const parts = [[s.pass, COL.pass], [s.fail, COL.fail], [s.blocked, COL.blocked], [s.notRun, 'C9D1E0']].filter(([n]) => n > 0);
+  function splitBar(bar) {
+    const total = bar.reduce((n, b) => n + b.value, 0);
+    const parts = bar.filter((b) => b.value > 0);
     if (!parts.length) return para(run(''));
-    const widths = parts.map(([n]) => Math.max(60, Math.round((n / s.total) * CONTENT)));
+    const widths = parts.map((b) => Math.max(60, Math.round((b.value / total) * CONTENT)));
     const diff = CONTENT - widths.reduce((a, b) => a + b, 0);
     widths[widths.length - 1] += diff;
     return table([new TableRow({
       height: { value: 160, rule: 'exact' },
-      children: parts.map(([, color], i) => cell(para(run('', { size: 2 }), { after: 0, line: 120 }), { width: widths[i], fill: color, borders: borders(null), pad: 0, padX: 0 })),
+      children: parts.map((b, i) => cell(para(run('', { size: 2 }), { after: 0, line: 120 }), { width: widths[i], fill: D(b.tone).fg, borders: borders(null), pad: 0, padX: 0 })),
     })], widths);
   }
 
   // ---------- executive summary ----------
   onProgress(0.1, 'Writing the executive summary…');
-  push(heading('Executive summary', { pageBreak: true }));
-  const kw = Math.floor(CONTENT / 6);
+  push(heading(summary.title, { pageBreak: true }));
+  const kw = Math.floor(CONTENT / summary.kpis.length);
   push(table([new TableRow({
-    children: [['Total', s.total, COL.navy], ['Executed', s.executed, COL.navy], ['Pass', s.pass, COL.pass], ['Fail', s.fail, COL.fail], ['Blocked', s.blocked, COL.blocked], ['Pass rate', pct(s.passRate), COL.blue]]
-      .map(([k, v, c]) => cell([para(caps(k, COL.muted, 13), { after: 30 }), para(run(String(v), { size: 32, bold: true, color: c }), { after: 0 })],
-        { width: kw, fill: COL.surface, border: COL.white, pad: 120 })),
-  })], Array(6).fill(kw), { borders: { top: none, bottom: none, left: none, right: none, insideHorizontal: none, insideVertical: { style: BorderStyle.SINGLE, size: 24, color: COL.white } } }));
+    children: summary.kpis.map((k) => cell([para(caps(k.label, COL.muted, 13), { after: 30 }), para(run(String(k.value), { size: 32, bold: true, color: D(k.tone).fg }), { after: 0 })],
+      { width: kw, fill: COL.surface, border: COL.white, pad: 120 })),
+  })], Array(summary.kpis.length).fill(kw), { borders: { top: none, bottom: none, left: none, right: none, insideHorizontal: none, insideVertical: { style: BorderStyle.SINGLE, size: 24, color: COL.white } } }));
   push(spacer(200));
-  push(para(caps('Status split'), { after: 80 }));
-  push(splitBar());
-  push(para([
-    run('■ ', { color: COL.pass }), run(`Pass ${s.pass}     `, { size: 17 }),
-    run('■ ', { color: COL.fail }), run(`Fail ${s.fail}     `, { size: 17 }),
-    run('■ ', { color: COL.blocked }), run(`Blocked ${s.blocked}     `, { size: 17 }),
-    run('■ ', { color: 'C9D1E0' }), run(`Not run ${s.notRun}`, { size: 17 }),
-  ], { before: 80, after: 280 }));
-  push(para(caps('Module-wise progress'), { after: 100, keepNext: true }));
-  const mw = [CONTENT - 6 * 1100, 1100, 1100, 1100, 1100, 1100, 1100];
-  push(dataTable(['Module / Feature', 'Total', 'Pass', 'Fail', 'Blocked', 'Not run', 'Pass rate'],
-    model.modules.map((m) => [m.name, m.total, m.pass, m.fail, m.blocked, m.notRun, m.executed ? pct(m.passRate) : '—']), mw,
-    (v, i) => (i === 2 && v ? { color: COL.pass } : i === 3 && v ? { color: COL.fail } : i === 4 && v ? { color: COL.blocked } : i === 6 ? { bold: true } : null)));
-  push(spacer(280));
-  push(para(caps('Open issues by severity (Fail + Blocked)'), { after: 100, keepNext: true }));
-  const sw = [CONTENT - 3 * 1500, 1500, 1500, 1500];
-  push(dataTable(['Severity', 'Fail', 'Blocked', 'Total'], model.severity.map((r) => [r.name, r.fail, r.blocked, r.total]), sw,
-    (v, i) => (i === 0 && SEV[v] ? { color: SEV[v], bold: true } : i === 3 ? { bold: true } : null)));
+  push(para(caps(summary.barLabel), { after: 80 }));
+  push(splitBar(summary.bar));
+  push(para(summary.bar.flatMap((b, i) => [
+    run('■ ', { color: D(b.tone).fg }),
+    run(`${b.label} ${b.value}${i < summary.bar.length - 1 ? '     ' : ''}`, { size: 17 }),
+  ]), { before: 80, after: 280 }));
+  summary.tables.forEach((t, i) => {
+    if (i) push(spacer(280));
+    push(para(caps(t.title), { after: 100, keepNext: true }));
+    push(dataTable(t, widthsOf(t.cols)));
+  });
 
   // ---------- index ----------
-  onProgress(0.14, 'Building the test case index…');
-  push(heading('Test case index', { pageBreak: true }));
-  const iw = [1100, CONTENT - 1100 - 2000 - 1200 - 1200 - 800, 2000, 1200, 1200, 800];
-  push(dataTable(['ID', 'Title / Description', 'Module', 'Status', 'Severity', 'Shots'],
-    model.cases.map((c) => [c.tid, c.title || 'Untitled test case', c.module || '—', c.status || 'Not run', c.severity || '—', c.images.length]), iw,
-    (v, i, ri) => {
-      if (i === 0) {
-        return { children: new InternalHyperlink({ anchor: anchor(model.cases[ri].tid), children: [new TextRun({ text: v, font: FONT, size: 17, bold: true, color: COL.blue, underline: {} })] }) };
-      }
-      if (i === 3) return { color: (STATUS[model.cases[ri].status] || STATUS['']).fg, bold: true };
-      if (i === 4 && SEV[v]) return { color: SEV[v] };
-      return null;
-    }));
+  onProgress(0.14, `Building the ${index.title.toLowerCase()}…`);
+  push(heading(index.title, { pageBreak: true }));
+  push(dataTable(index, widthsOf(index.cols), true));
 
-  // ---------- test cases ----------
-  const total = model.cases.length;
+  // ---------- items ----------
+  const total = model.items.length;
   for (let k = 0; k < total; k++) {
-    const c = model.cases[k];
-    onProgress(0.16 + (k / total) * 0.78, `Writing ${c.tid} (${k + 1} of ${total})…`);
-    const st = STATUS[c.status] || STATUS[''];
+    const item = model.items[k];
+    onProgress(0.16 + (k / total) * 0.78, `Writing ${item.id} (${k + 1} of ${total})…`);
     push(new Paragraph({
       heading: HeadingLevel.HEADING_2,
       pageBreakBefore: model.layout === 'page' || k === 0,
       keepNext: true,
       spacing: { before: model.layout === 'page' || k === 0 ? 0 : 480, after: 160, line: 300 },
       shading: { type: ShadingType.CLEAR, color: 'auto', fill: COL.soft },
-      border: { left: { style: BorderStyle.SINGLE, size: 36, color: st.fg, space: 8 } },
+      border: { left: { style: BorderStyle.SINGLE, size: 36, color: D(item.accent).fg, space: 8 } },
       children: [
-        new Bookmark({ id: anchor(c.tid), children: [run(`${c.tid}   `, { size: 22, bold: true, color: COL.blue })] }),
-        run(c.title || 'Untitled test case', { size: 24, bold: true, color: COL.navy }),
-        run(`     ● ${c.status || 'Not run'}`, { size: 18, bold: true, color: st.fg }),
+        new Bookmark({ id: anchor(item.id), children: [run(`${item.id}   `, { size: 22, bold: true, color: COL.blue })] }),
+        run(item.title || item.untitled, { size: 24, bold: true, color: COL.navy }),
+        run(`     ● ${item.badge.text}`, { size: 18, bold: true, color: D(item.badge.tone).fg }),
       ],
     }));
-    const fw = Math.floor(CONTENT / 3);
-    const facts = [['Module / Feature', c.module], ['Field / Control', c.field], ['Test Type', c.type], ['Account Type', c.account], ['Severity', c.severity], ['Tester', c.tester]];
-    const factRows = [0, 3].map((r) => new TableRow({
-      cantSplit: true,
-      children: facts.slice(r, r + 3).map(([k2, v]) => cell([
-        para(caps(k2, COL.muted, 12), { after: 20 }),
-        para(run(v || '—', { size: 18, bold: true, color: k2 === 'Severity' && SEV[v] ? SEV[v] : v ? COL.navy : COL.faint }), { after: 0 }),
-      ], { width: fw, fill: COL.surface, border: COL.white, pad: 80 })),
-    }));
-    push(table(factRows, [fw, fw, CONTENT - 2 * fw], { borders: { top: none, bottom: none, left: none, right: none, insideHorizontal: { style: BorderStyle.SINGLE, size: 24, color: COL.white }, insideVertical: { style: BorderStyle.SINGLE, size: 24, color: COL.white } } }));
+    const per = item.factsPerRow;
+    const fw = Math.floor(CONTENT / per);
+    const factRows = [];
+    for (let r = 0; r < item.facts.length; r += per) {
+      factRows.push(new TableRow({
+        cantSplit: true,
+        children: item.facts.slice(r, r + per).map((f) => cell([
+          para(caps(f.label, COL.muted, 12), { after: 20 }),
+          para(run(f.value || '—', { size: 18, bold: true, color: f.tone && f.value ? D(f.tone).fg : f.value ? COL.navy : COL.faint }), { after: 0 }),
+        ], { width: fw, fill: COL.surface, border: COL.white, pad: 80 })),
+      }));
+    }
+    push(table(factRows, [...Array(per - 1).fill(fw), CONTENT - (per - 1) * fw], { borders: gridBorders }));
     push(spacer(120));
-    const block = (title, text) => {
-      push(para(caps(title), { after: 40, keepNext: true }));
-      push(para(lines(text || '—'), { after: 160 }));
-    };
-    if (c.pre) block('Preconditions', c.pre);
-    block('Test steps', c.steps);
-    if (c.data) block('Test data', c.data);
-    const ew = Math.floor(CONTENT / 2);
-    push(table([new TableRow({
-      children: [
-        cell([para(caps('Expected result'), { after: 40 }), para(lines(c.expected || '—'), { after: 0 })], { width: ew, fill: COL.surface, border: COL.line2, pad: 120, valign: VerticalAlignTable.TOP }),
-        cell([para(caps('Actual result', COL.ink), { after: 40 }), para(lines(c.actual || '—'), { after: 0 })], { width: CONTENT - ew, fill: st.soft, border: c.status === 'Fail' ? 'F9B6B0' : c.status === 'Blocked' ? 'F9C99A' : COL.line2, pad: 120, valign: VerticalAlignTable.TOP }),
-      ],
-    })], [ew, CONTENT - ew]));
-    push(spacer(120));
-    if (c.comments) block('Comments / Defect ID', c.comments);
-    if (c.images.length) {
-      push(para(caps(`Evidence · ${c.images.length} screenshot${c.images.length > 1 ? 's' : ''}`), { after: 80, keepNext: true }));
-      for (let n = 0; n < c.images.length; n++) {
-        const shot = await loadShot(store, c.images[n]);
+    for (const s of item.sections) {
+      if (s.type === 'compare') {
+        const ew = Math.floor(CONTENT / 2);
+        const t = D(s.tone);
+        push(table([new TableRow({
+          children: [
+            cell([para(caps(s.left.title), { after: 40 }), para(lines(s.left.text || '—'), { after: 0 })], { width: ew, fill: COL.surface, border: COL.line2, pad: 120, valign: VerticalAlignTable.TOP }),
+            cell([para(caps(s.right.title, COL.ink), { after: 40 }), para(lines(s.right.text || '—'), { after: 0 })], { width: CONTENT - ew, fill: t.soft, border: t.border, pad: 120, valign: VerticalAlignTable.TOP }),
+          ],
+        })], [ew, CONTENT - ew]));
+        push(spacer(120));
+      } else {
+        push(para(caps(s.title), { after: 40, keepNext: true }));
+        push(para(lines(s.text || '—'), { after: 160 }));
+      }
+    }
+    if (item.images.length) {
+      push(para(caps(`${item.evidenceLabel} · ${item.images.length} screenshot${item.images.length > 1 ? 's' : ''}`), { after: 80, keepNext: true }));
+      for (let n = 0; n < item.images.length; n++) {
+        const shot = await loadShot(store, item.images[n]);
         if (!shot) continue;
         const size = scaled(shot.w, shot.h, CONTENT_PX, 760);
         push(new Paragraph({
@@ -297,9 +243,9 @@ export async function build(model, { store, onProgress = () => {} }) {
           keepNext: true,
           spacing: { before: 80, after: 40 },
           border: { top: thin(COL.line), bottom: thin(COL.line), left: thin(COL.line), right: thin(COL.line) },
-          children: [new ImageRun({ type: shot.format === 'JPEG' ? 'jpg' : 'png', data: shot.bytes, transformation: size, altText: { title: `${c.tid} screenshot ${n + 1}`, description: `${c.tid} screenshot ${n + 1} of ${c.images.length}`, name: `${c.tid}-${n + 1}` } })],
+          children: [new ImageRun({ type: shot.format === 'JPEG' ? 'jpg' : 'png', data: shot.bytes, transformation: size, altText: { title: `${item.id} screenshot ${n + 1}`, description: `${item.id} screenshot ${n + 1} of ${item.images.length}`, name: `${item.id}-${n + 1}` } })],
         }));
-        push(para(run(`${c.tid} · Screenshot ${n + 1} of ${c.images.length}`, { size: 15, color: COL.muted }), { align: AlignmentType.CENTER, after: 200 }));
+        push(para(run(`${item.id} · Screenshot ${n + 1} of ${item.images.length}`, { size: 15, color: COL.muted }), { align: AlignmentType.CENTER, after: 200 }));
       }
     }
     if (k % 5 === 0) await nextFrame();
@@ -307,7 +253,7 @@ export async function build(model, { store, onProgress = () => {} }) {
 
   onProgress(0.96, 'Packaging the document…');
   const doc = new Document({
-    creator: model.report.preparedBy || 'Iraje Software',
+    creator: model.author,
     title: model.title,
     description: `${model.subtitle} generated by ${model.appName}`,
     styles: {
@@ -318,12 +264,7 @@ export async function build(model, { store, onProgress = () => {} }) {
       ],
     },
     sections: [{
-      properties: {
-        page: {
-          size: { width: PAGE_W, height: PAGE_H },
-          margin: { top: 1300, bottom: 1150, left: MARGIN_X, right: MARGIN_X, header: 520, footer: 520 },
-        },
-      },
+      properties: { page },
       headers: { default: header },
       footers: { default: footer },
       children,

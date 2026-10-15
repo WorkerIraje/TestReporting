@@ -2,7 +2,8 @@
 
 import { registry, setFile } from './harness.js';
 
-const FILES = ['store.test.js', 'project-file.test.js'];
+const FILES = ['store.test.js', 'project-file.test.js', 'report-model.test.js'];
+const ON_DEMAND = ['report-parity.test.js']; // slow, writes files: only with ?only=
 const TIMEOUT = 60_000;
 
 const only = new URLSearchParams(location.search).get('only');
@@ -25,7 +26,7 @@ function report(file, name, err) {
   list.append(li);
 }
 
-for (const file of FILES.filter((f) => !only || f.includes(only))) {
+for (const file of only ? [...FILES, ...ON_DEMAND].filter((f) => f.includes(only)) : FILES) {
   setFile(file);
   try {
     await import(`./${file}`);
