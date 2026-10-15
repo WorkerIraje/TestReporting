@@ -1,0 +1,6 @@
+body { font: 14px/1.5 'Segoe UI', Arial, sans-serif; margin: 24px; color: #1D2548; }
+#summary { display: inline-block; font-weight: 700; padding: 4px 12px; border-radius: 999px; background: #EEF1F6; }
+#summary[data-status='pass'] { background: #E7F6EC; color: #15803D; }
+#summary[data-status='fail'] { background: #FEECEB; color: #D92D20; }
+li.fail { color: #D92D20; }
+li small { display: block; color: #687290; white-space: pre-wrap; }
