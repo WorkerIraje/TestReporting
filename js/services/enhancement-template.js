@@ -47,7 +47,8 @@ export const labelKind = (text) => LABELS[String(text ?? '').toLowerCase().repla
 export async function buildTemplate({ blocks = 5 } = {}) {
   const d = await getDocx();
   const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, BorderStyle, ShadingType, VerticalAlignTable, TableLayoutType } = d;
-  const { header, footer, page } = await brandParts(d, { title: 'Enhancement Request Template', generatedLabel: 'Enhancement request template' });
+  // the template is handed to anyone, so it gives plain steps and does not name the app
+  const { header, footer, page } = await brandParts(d, { title: 'Enhancement Request Template', generatedLabel: 'Enhancement request template', footerText: 'Iraje Software' });
   const run = (text, o = {}) => new TextRun({ text, font: FONT, size: o.size ?? 20, bold: o.bold, italics: o.italics, color: o.color ?? '434C6B', characterSpacing: o.spacing });
   const para = (children, o = {}) => new Paragraph({ children: [].concat(children), spacing: { before: o.before ?? 0, after: o.after ?? 80, line: 300 }, keepNext: o.keepNext });
   const line = { style: BorderStyle.SINGLE, size: 4, color: 'C9DAFB' };
@@ -89,10 +90,10 @@ export async function buildTemplate({ blocks = 5 } = {}) {
     'Fill in one block per enhancement: a one-line Title, a Description of what happens today and what should change, and reference screenshots.',
     'Need more blocks? Select a whole block table, copy it and paste it below the last one.',
     'Paste screenshots as pictures into the Reference screenshot cell (PNG or JPEG work best).',
-    'Upload the file in Iraje QA Management → Enhancement Report → Upload. Module, Proposed improvement, Business value and Priority are completed on each card.',
+    'Keep the labels Title, Description and Reference screenshot unchanged, and save the file as a Word document (.docx).',
   ];
   const doc = new Document({
-    creator: 'Iraje QA Management',
+    creator: 'Iraje Software',
     title: 'Iraje Enhancement Template',
     subject: 'Enhancement requests',
     keywords: 'iraje-enhancement-template',
@@ -103,7 +104,7 @@ export async function buildTemplate({ blocks = 5 } = {}) {
       footers: { default: footer },
       children: [
         para(run('Enhancement requests', { size: 44, bold: true, color: '1D2548' }), { after: 120 }),
-        para(run('Describe each enhancement in its own block below. Iraje QA Management turns every block into an enhancement card.', { color: '687290' }), { after: 200 }),
+        para(run('Describe each enhancement in its own block below.', { color: '687290' }), { after: 200 }),
         ...steps.map((s, i) => para([run(`${i + 1}.  `, { bold: true, color: '0451CC' }), run(s)], { after: 60 })),
         ...Array.from({ length: blocks }, (_, i) => block(i + 1)).flat(),
       ],

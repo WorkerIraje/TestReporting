@@ -131,3 +131,15 @@ test('a table without a Title row starts its own request', async () => {
   ])));
   eq(r.items.map((i) => [i.title, i.current]), [['One', 'First'], ['', 'Orphan text']]);
 });
+
+test('the template gives plain steps and never names the app', async () => {
+  const JSZip = await getJSZip();
+  const zip = await JSZip.loadAsync(await buildTemplate());
+  const parts = Object.keys(zip.files).filter((n) => /^(word\/.*\.xml|docProps\/.*\.xml)$/.test(n));
+  for (const name of parts) {
+    const xml = await zip.file(name).async('string');
+    ok(!xml.includes('QA Management'), `${name} still names the app`);
+  }
+  const body = await zip.file('word/document.xml').async('string');
+  ok(body.includes('Keep the labels Title, Description and Reference screenshot unchanged'), 'label step missing');
+});

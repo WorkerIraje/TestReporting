@@ -12,7 +12,7 @@ export const CONTENT = PAGE_W - MARGIN_X * 2; // twips
 export const BRAND = { blue: '0451CC', navy: '1D2548', muted: '687290', line: 'E1E7F2' };
 
 /** d = the docx library namespace. Returns { header, footer, page } for a document section. */
-export async function brandParts(d, { title, productLine = '', generatedLabel }) {
+export async function brandParts(d, { title, productLine = '', generatedLabel, footerText = 'Iraje Software  ·  Iraje QA Management' }) {
   const {
     Paragraph, TextRun, ImageRun, Header, Footer, BorderStyle, PageNumber, HorizontalPositionRelativeFrom, VerticalPositionRelativeFrom,
     HorizontalPositionAlign, VerticalPositionAlign, TextWrappingType, TabStopType, Tab,
@@ -52,7 +52,7 @@ export async function brandParts(d, { title, productLine = '', generatedLabel })
       tabStops: [{ type: TabStopType.CENTER, position: CONTENT / 2 }, { type: TabStopType.RIGHT, position: CONTENT }],
       border: { top: { style: BorderStyle.SINGLE, size: 4, color: BRAND.line, space: 4 } },
       children: [
-        run('Iraje Software  ·  Iraje QA Management', { size: 14, color: BRAND.muted }),
+        run(footerText, { size: 14, color: BRAND.muted }),
         new TextRun({ children: [new Tab(), generatedLabel], font: FONT, size: 14, color: BRAND.muted }),
         new TextRun({ children: [new Tab(), 'Page ', PageNumber.CURRENT, ' of ', PageNumber.TOTAL_PAGES], font: FONT, size: 14, bold: true, color: BRAND.navy }),
       ],
