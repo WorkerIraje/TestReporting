@@ -2,7 +2,7 @@
 
 import { registry, setFile } from './harness.js';
 
-const FILES = ['store.test.js'];
+const FILES = ['store.test.js', 'project-file.test.js'];
 const TIMEOUT = 60_000;
 
 const only = new URLSearchParams(location.search).get('only');

@@ -1,35 +1,27 @@
-// "All test cases" drawer: search, filter, jump to any card and drag to reorder.
+// "All test cases" / "All requests" drawer: search, filter, jump to any card and drag to reorder.
 
-import { store, isComplete } from '../core/store.js';
 import { h, clear, iconButton } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { sortable } from '../ui/sortable.js';
 import { toast } from '../ui/toast.js';
-import { testId, debounce } from '../core/util.js';
-
-const FILTERS = [
-  ['all', 'All', () => true],
-  ['Pass', 'Pass', (c) => c.status === 'Pass'],
-  ['Fail', 'Fail', (c) => c.status === 'Fail'],
-  ['Blocked', 'Blocked', (c) => c.status === 'Blocked'],
-  ['none', 'Not run', (c) => !c.status],
-  ['incomplete', 'Incomplete', (c) => !isComplete(c)],
-  ['bookmarked', 'Bookmarked', (c) => c.bookmarked],
-];
+import { debounce } from '../core/util.js';
 
 let open = null;
 
 export function openNavigator(ws) {
   if (open) return;
+  const { store, def } = ws;
+  const { noun, itemId } = def;
+  const FILTERS = def.navFilters.map(([key, label, fn]) => [key, label, (c) => fn(c, store)]);
   let filter = 'all';
   let query = '';
   const previous = document.activeElement;
 
-  const search = h('input.input', { type: 'search', placeholder: 'Search title, module, field, steps…', 'aria-label': 'Search test cases' });
+  const search = h('input.input', { type: 'search', placeholder: `Search ${noun.many}…`, 'aria-label': `Search ${noun.many}` });
   const filters = h('div.filters', { role: 'group', 'aria-label': 'Filter by status' });
   const hint = h('p.drawer-hint');
   const list = h('div.drawer-list', { role: 'list' });
-  const title = h('h2', 'All test cases');
+  const title = h('h2', `All ${noun.many}`);
 
   const close = () => {
     if (!open) return;
@@ -44,7 +36,7 @@ export function openNavigator(ws) {
   };
 
   const backdrop = h('div.backdrop', { onclick: close });
-  const drawer = h('aside.drawer', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'All test cases' },
+  const drawer = h('aside.drawer', { role: 'dialog', 'aria-modal': 'true', 'aria-label': `All ${noun.many}` },
     h('div.drawer-head',
       h('div.row', title, iconButton('x', 'Close', { onclick: close })),
       h('div.search', icon('search'), search),
@@ -54,7 +46,7 @@ export function openNavigator(ws) {
 
   const matches = (c) => {
     if (!query) return true;
-    const hay = `${c.title}\n${c.module}\n${c.field}\n${c.steps}\n${c.expected}\n${c.actual}\n${c.comments}\n${c.tester}`.toLowerCase();
+    const hay = def.searchText(c).toLowerCase();
     return query.split(/\s+/).every((q) => hay.includes(q));
   };
 
@@ -78,27 +70,28 @@ export function openNavigator(ws) {
     cases.forEach((c, i) => {
       if (!test(c) || !matches(c)) return;
       shown++;
+      const mark = def.marker(c);
       const item = h(`div.nav-item${i === store.index ? '.is-current' : ''}`, {
         role: 'listitem', tabindex: 0, dataset: { index: i },
-        'aria-label': `${testId(i)} ${c.title || 'Untitled'}`,
+        'aria-label': `${itemId(i)} ${c.title || 'Untitled'}`,
         'aria-current': i === store.index ? 'true' : null,
       },
       h('span.drag-handle', { 'aria-hidden': 'true', title: 'Drag to reorder' }, icon('grip')),
-      h('span.nid', testId(i)),
-      h('span.ntitle', h('b', (c.title || 'Untitled test case').split('\n')[0]), h('small', [c.module, c.field].filter(Boolean).join(' · ') || 'No module yet')),
+      h('span.nid', itemId(i)),
+      h('span.ntitle', h('b', def.headline(c) || `Untitled ${noun.one}`), h('small', def.subtitle(c))),
       h('span.nmeta',
         c.bookmarked ? h('span.mark-bookmark', { title: 'Bookmarked' }, icon('bookmark')) : null,
-        !isComplete(c) ? h('span.mark-incomplete', { title: 'Missing required fields' }, icon('alert-circle')) : null,
+        !store.isComplete(c) ? h('span.mark-incomplete', { title: 'Missing required fields' }, icon('alert-circle')) : null,
         c.images.length ? h('span.muted', { title: 'Screenshots' }, icon('image')) : null,
-        h(`span.dot${c.status ? `.is-${c.status.toLowerCase()}` : ''}`, { title: c.status || 'Not run' })));
+        h(`span.dot${mark.cls ? `.${mark.cls}` : ''}`, { title: mark.title })));
       frag.append(item);
     });
     clear(list);
-    if (!shown) list.append(h('div.empty-note', icon('search'), h('p', 'No test cases match.')));
+    if (!shown) list.append(h('div.empty-note', icon('search'), h('p', `No ${noun.many} match.`)));
     else list.append(frag);
     const reorderable = filter === 'all' && !query;
     hint.textContent = reorderable
-      ? `${cases.length.toLocaleString()} test cases · drag ⠿ or press Alt+↑/↓ to reorder · IDs follow the order`
+      ? `${cases.length.toLocaleString()} ${noun.many} · drag ⠿ or press Alt+↑/↓ to reorder · IDs follow the order`
       : `${shown.toLocaleString()} of ${cases.length.toLocaleString()} shown · clear the search and filter to reorder`;
     list.classList.toggle('is-filtered', !reorderable);
     list.querySelector('.is-current')?.scrollIntoView({ block: 'nearest' });
@@ -142,7 +135,7 @@ export function openNavigator(ws) {
       if (from === to) renderList();
       else {
         store.moveCase(from, to);
-        toast(`Moved to position ${to + 1}. Test IDs were renumbered.`, { type: 'success', duration: 2500 });
+        toast(`Moved to position ${to + 1}. IDs were renumbered.`, { type: 'success', duration: 2500 });
       }
     },
   });

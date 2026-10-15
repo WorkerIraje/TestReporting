@@ -1,7 +1,9 @@
-// Shareable project file (.iqa): one ZIP with every test case, the report details and all
-// screenshots, so another tester can open the session and continue where you stopped.
+// Shareable project file (.iqa): one ZIP with every card of a workspace (test cases or enhancement
+// requests), the report details and all screenshots, so another tester can continue where you
+// stopped. The manifest records the workspace kind; files without one come from Test Cases.
 
-import { APP, FIELD_KEYS } from '../core/config.js';
+import { APP } from '../core/config.js';
+import { TESTCASES, ENHANCEMENTS } from '../core/workspaces.js';
 import { getJSZip } from '../core/loader.js';
 import { formatBytes } from '../core/util.js';
 import { processImageFiles } from './images.js';
@@ -9,6 +11,7 @@ import { ImportError } from './importer.js';
 
 const APP_ID = 'iraje-qa-management';
 const FORMAT = 1;
+const KINDS = { [TESTCASES.key]: TESTCASES, [ENHANCEMENTS.key]: ENHANCEMENTS };
 
 export async function saveProject(store, onProgress = () => {}) {
   const JSZip = await getJSZip();
@@ -31,8 +34,9 @@ export async function saveProject(store, onProgress = () => {}) {
     app: APP_ID,
     format: FORMAT,
     savedAt: new Date().toISOString(),
+    kind: store.def.key,
     report: store.state.report,
-    cases: cases.map((c) => ({ id: c.id, bookmarked: c.bookmarked, images: c.images, ...Object.fromEntries(FIELD_KEYS.map((k) => [k, c[k]])) })),
+    cases: cases.map((c) => ({ id: c.id, bookmarked: c.bookmarked, images: c.images, ...Object.fromEntries(store.def.fieldKeys.map((k) => [k, c[k]])) })),
     images,
   };
   zip.file('manifest.json', JSON.stringify(manifest));
@@ -41,9 +45,9 @@ export async function saveProject(store, onProgress = () => {}) {
   return blob;
 }
 
-export async function openProject(file, onProgress = () => {}) {
+export async function openProject(file, def, onProgress = () => {}) {
   if (!/\.iqa$/i.test(file.name)) {
-    throw new ImportError('Not a project file', `Project files end with ${APP.projectExt}. To import test cases from Excel, use the Upload tab.`);
+    throw new ImportError('Not a project file', `Project files end with ${APP.projectExt}. To import ${def.noun.many} from a template, use the Upload tab.`);
   }
   if (file.size > APP.maxProjectBytes) {
     throw new ImportError('File too large', `The project is ${formatBytes(file.size)}; the limit is ${formatBytes(APP.maxProjectBytes)}.`);
@@ -60,7 +64,7 @@ export async function openProject(file, onProgress = () => {}) {
     throw new ImportError('Damaged project file', 'The project could not be opened.');
   }
   const entries = Object.values(zip.files);
-  if (entries.length > APP.maxCases * APP.maxImagesPerCase + 10) throw new ImportError('File rejected', 'The project contains too many files.');
+  if (entries.length > def.maxItems * APP.maxImagesPerCase + 10) throw new ImportError('File rejected', 'The project contains too many files.');
   let total = 0;
   for (const e of entries) {
     const size = e._data?.uncompressedSize ?? 0;
@@ -80,7 +84,15 @@ export async function openProject(file, onProgress = () => {}) {
   if (manifest?.app !== APP_ID || manifest.format !== FORMAT || !Array.isArray(manifest.cases)) {
     throw new ImportError('Unsupported project', 'This project was not created by Iraje QA Management, or by a newer version.');
   }
-  if (manifest.cases.length > APP.maxCases) throw new ImportError('Too many test cases', `A project can hold up to ${APP.maxCases} test cases.`);
+  const kind = KINDS[manifest.kind || TESTCASES.key];
+  if (kind?.key !== def.key) {
+    throw new ImportError('Wrong workspace', kind
+      ? `This project file holds ${kind.noun.many}. Open it from the ${kind.title} workspace.`
+      : 'This project was created by a newer version of Iraje QA Management.');
+  }
+  if (manifest.cases.length > def.maxItems) {
+    throw new ImportError(`Too many ${def.noun.many}`, `A project can hold up to ${def.maxItems.toLocaleString()} ${def.noun.many}.`);
+  }
 
   const files = new Map((Array.isArray(manifest.images) ? manifest.images : [])
     .filter((m) => m && typeof m.id === 'string' && typeof m.file === 'string' && /^images\/img_[\w-]{4,40}\.(png|jpg)$/.test(m.file))

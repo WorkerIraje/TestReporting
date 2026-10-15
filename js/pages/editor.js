@@ -1,21 +1,25 @@
-// The test case card: one large card per test case with every template field, live
-// validation, screenshots (browse / drag & drop / paste) and fast keyboard navigation.
-// Only the visible card is rendered, so thousands of cases stay instant.
+// The card editor shared by every workspace: one large card per test case or enhancement request
+// with every field of the workspace, live validation, screenshots (browse / drag & drop / paste) and
+// fast keyboard navigation. Only the visible card is rendered, so thousands of cards stay instant.
 
-import { store, isComplete, missingFields, hasContent } from '../core/store.js';
-import { APP, FIELDS, GROUPS, FIELD_BY_KEY, REQUIRED_KEYS } from '../core/config.js';
+import { APP } from '../core/config.js';
 import { h, clear, button, iconButton, autoGrow, pickFiles } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { toast, undoToast } from '../ui/toast.js';
 import { openModal } from '../ui/modal.js';
 import { openLightbox } from '../ui/lightbox.js';
 import { sortable } from '../ui/sortable.js';
-import { testId, modKey, plural, isBlank } from '../core/util.js';
+import { modKey, plural, isBlank } from '../core/util.js';
 import { processImageFiles, imageFilesFrom, hasFiles } from '../services/images.js';
 
 const blocking = () => document.querySelector('dialog[open], .drawer, .lightbox, .progress-overlay');
 
 export function mount(root, ws) {
+  const { store, def } = ws;
+  const { fields: FIELDS, groups: GROUPS, fieldByKey: FIELD_BY_KEY, requiredKeys: REQUIRED_KEYS, noun, itemId } = def;
+  const { isComplete, missingFields, hasContent } = store;
+  const firstKey = FIELDS[0].key;
+  const clearRules = FIELDS.filter((f) => f.clears);
   const inputs = {};   // key -> { wrap, get, set, focus, el }
   let current = store.current;
   let lastShake = 0;
@@ -36,12 +40,12 @@ export function mount(root, ws) {
     type: 'button', 'aria-pressed': 'false', 'data-tip': `Bookmark (${modKey}+B)`,
     onclick: () => toggleBookmark(),
   }, icon('bookmark'));
-  const counterPrev = iconButton('chevron-left', 'Previous test case', { onclick: () => prev() });
-  const counterNext = iconButton('chevron-right', 'Next test case', { onclick: () => next() });
-  const counterValue = h('button.counter-value', { type: 'button', 'data-tip': 'Jump to a test case', onclick: () => editCounter() });
-  const counter = h('div.counter', { role: 'group', 'aria-label': 'Test case position' }, counterPrev, counterValue, counterNext);
-  const inlineFirst = iconButton('first', 'Go to first test case', { class: 'icon-btn inline-edge', onclick: () => goFirst() });
-  const inlineLast = iconButton('last', 'Go to last test case', { class: 'icon-btn inline-edge', onclick: () => goLast() });
+  const counterPrev = iconButton('chevron-left', `Previous ${noun.one}`, { onclick: () => prev() });
+  const counterNext = iconButton('chevron-right', `Next ${noun.one}`, { onclick: () => next() });
+  const counterValue = h('button.counter-value', { type: 'button', 'data-tip': `Jump to a ${noun.one}`, onclick: () => editCounter() });
+  const counter = h('div.counter', { role: 'group', 'aria-label': `${noun.One} position` }, counterPrev, counterValue, counterNext);
+  const inlineFirst = iconButton('first', `Go to first ${noun.one}`, { class: 'icon-btn inline-edge', onclick: () => goFirst() });
+  const inlineLast = iconButton('last', `Go to last ${noun.one}`, { class: 'icon-btn inline-edge', onclick: () => goLast() });
   const live = h('span.sr-only', { 'aria-live': 'polite' });
 
   // ---------- progress ----------
@@ -76,7 +80,7 @@ export function mount(root, ws) {
   dropzone.addEventListener('click', (e) => { if (!e.target.closest('button')) browseImages(); });
   dropzone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); browseImages(); } });
   body.append(h('section.tc-section',
-    h('div.tc-section-head', h('span.num', String(GROUPS.length + 1)), h('h3', 'Evidence'), h('span.hint', 'Screenshots that prove the result')),
+    h('div.tc-section-head', h('span.num', String(GROUPS.length + 1)), h('h3', def.evidence.title), h('span.hint', def.evidence.hint)),
     dropzone, shots, shotsMeta));
 
   // ---------- footer ----------
@@ -87,15 +91,15 @@ export function mount(root, ws) {
   const nextWrap = h('div.next-wrap', { 'data-tip-pos': 'top-end', onclick: (e) => { if (nextBtn.disabled && e.target === nextWrap) showMissing(); } }, nextBtn);
   const foot = h('footer.tc-foot', prevBtn, h('div.tc-foot-mid', clearBtn, deleteBtn), nextWrap);
 
-  const card = h('article.tc-card', { 'aria-label': 'Test case editor' },
+  const card = h('article.tc-card', { 'aria-label': `${noun.One} editor` },
     h('header.tc-head', idChip, headTitle, bookmarkBtn, h('div.tc-nav', inlineFirst, counter, inlineLast), live),
     progress, body, foot);
 
   // ---------- edge navigation + finish ----------
-  const edgeFirst = h('button.edge-nav.is-first', { type: 'button', 'aria-label': 'Go to first test case', onclick: () => goFirst() },
-    icon('chevron-left'), h('span.edge-label', 'Go to first test case'));
-  const edgeLast = h('button.edge-nav.is-last', { type: 'button', 'aria-label': 'Go to last test case', onclick: () => goLast() },
-    icon('chevron-right'), h('span.edge-label', 'Go to last test case'));
+  const edgeFirst = h('button.edge-nav.is-first', { type: 'button', 'aria-label': `Go to first ${noun.one}`, onclick: () => goFirst() },
+    icon('chevron-left'), h('span.edge-label', `Go to first ${noun.one}`));
+  const edgeLast = h('button.edge-nav.is-last', { type: 'button', 'aria-label': `Go to last ${noun.one}`, onclick: () => goLast() },
+    icon('chevron-right'), h('span.edge-label', `Go to last ${noun.one}`));
   const finishBtn = button('Finish', { variant: 'primary', size: 'lg', iconLeft: 'check-circle', onclick: () => finish() });
   const hints = h('div.shortcut-hints',
     h('span', h('kbd', modKey), '+', h('kbd', 'Enter'), 'next'),
@@ -107,7 +111,7 @@ export function mount(root, ws) {
   // edge arrows live on <body> so the page-enter animation never moves them
   document.body.append(edgeFirst, edgeLast);
   root.append(h('div.editor', card,
-    h('div.finish-row', finishBtn, h('p.muted', 'Finish to review the summary, download the TestSheet and generate reports.'), hints)));
+    h('div.finish-row', finishBtn, h('p.muted', def.finishHint), hints)));
 
   // ---------- field builders ----------
 
@@ -204,7 +208,7 @@ export function mount(root, ws) {
     get = () => el.value;
     set = (v) => { if (el.value !== v) el.value = v; fit(); };
     wrap.append(el);
-    if (f.key === 'steps') wrap.append(h('span.field-hint', h('kbd', 'Enter'), ' adds a new line · ', h('kbd', modKey), '+', h('kbd', 'Enter'), ' goes to the next test case'));
+    if (f.enterHint) wrap.append(h('span.field-hint', h('kbd', 'Enter'), ' adds a new line · ', h('kbd', modKey), '+', h('kbd', 'Enter'), ` goes to the next ${noun.one}`));
     return { wrap, el, get, set, fit, focus: () => el.focus() };
   }
 
@@ -227,7 +231,7 @@ export function mount(root, ws) {
       const headerH = document.getElementById('appHeader')?.offsetHeight || 0;
       if (card.isConnected && card.getBoundingClientRect().top < headerH) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
-    live.textContent = `Test case ${i + 1} of ${store.count}`;
+    live.textContent = `${noun.One} ${i + 1} of ${store.count}`;
     requestAnimationFrame(() => FIELDS.forEach((f) => inputs[f.key].fit()));
   }
 
@@ -236,15 +240,15 @@ export function mount(root, ws) {
     const n = store.count;
     const done = REQUIRED_KEYS.length - missingFields(current).length;
     const complete = done === REQUIRED_KEYS.length;
-    idChip.textContent = testId(i);
+    idChip.textContent = itemId(i);
     const t = (current.title || '').split('\n')[0].trim();
-    headTitle.textContent = t || 'Untitled test case';
+    headTitle.textContent = t || `Untitled ${noun.one}`;
     headTitle.classList.toggle('is-empty', !t);
     clear(counterValue).append(String(i + 1), h('span.sep', '/'), String(n));
-    counterValue.setAttribute('aria-label', `Test case ${i + 1} of ${n}. Click to jump.`);
+    counterValue.setAttribute('aria-label', `${noun.One} ${i + 1} of ${n}. Click to jump.`);
     bookmarkBtn.setAttribute('aria-pressed', String(current.bookmarked));
     bookmarkBtn.dataset.tip = current.bookmarked ? `Remove bookmark (${modKey}+B)` : `Bookmark (${modKey}+B)`;
-    bookmarkBtn.setAttribute('aria-label', current.bookmarked ? 'Remove bookmark' : 'Bookmark this test case');
+    bookmarkBtn.setAttribute('aria-label', current.bookmarked ? 'Remove bookmark' : `Bookmark this ${noun.one}`);
     progressText.textContent = complete ? 'All required fields done' : `${done} of ${REQUIRED_KEYS.length} required fields`;
     progressFill.style.width = `${(done / REQUIRED_KEYS.length) * 100}%`;
     progress.classList.toggle('is-complete', complete);
@@ -256,7 +260,7 @@ export function mount(root, ws) {
     nextBtn.disabled = !complete;
     counterNext.disabled = !complete;
     nextWrap.dataset.tip = complete
-      ? (atLast ? `Save and start test case ${n + 1}` : `Go to test case ${i + 2}`)
+      ? (atLast ? `Save and start ${noun.one} ${n + 1}` : `Go to ${noun.one} ${i + 2}`)
       : 'Fill all required (*) fields to continue';
     clearBtn.disabled = !hasContent(current);
     deleteBtn.disabled = n === 1 && !hasContent(current);
@@ -268,14 +272,18 @@ export function mount(root, ws) {
       inputs[f.key].wrap.classList.toggle('is-filled', filled && f.required);
       if (filled) inputs[f.key].wrap.classList.remove('is-invalid');
     }
-    const sev = inputs.severity;
-    const pass = current.status === 'Pass';
-    sev.opts.forEach((o) => { o.disabled = pass; });
-    sev.group.classList.toggle('is-disabled', pass);
+    // fields that a rule clears (e.g. Severity when the Status is Pass) are disabled while it holds
+    for (const f of clearRules) {
+      const held = current[f.key] === f.clears.when;
+      for (const k of f.clears.fields) {
+        inputs[k].opts?.forEach((o) => { o.disabled = held; });
+        inputs[k].group?.classList.toggle('is-disabled', held);
+      }
+    }
   }
 
   function afterChange(key) {
-    if (key === 'status') inputs.severity.set(current.severity);
+    for (const f of clearRules) if (f.key === key) for (const k of f.clears.fields) inputs[k].set(current[k]);
     refresh();
   }
 
@@ -312,7 +320,7 @@ export function mount(root, ws) {
     const c = current;
     openLightbox(c.images.map((id, k) => ({
       load: () => store.imageUrl(id, 'full'),
-      caption: `${testId(store.indexOf(c.id))} · Screenshot ${k + 1} of ${c.images.length}`,
+      caption: `${itemId(store.indexOf(c.id))} · Screenshot ${k + 1} of ${c.images.length}`,
     })), start);
   }
 
@@ -325,16 +333,16 @@ export function mount(root, ws) {
     const c = current;
     const room = APP.maxImagesPerCase - c.images.length;
     if (room <= 0) {
-      toast(`A test case can hold up to ${APP.maxImagesPerCase} screenshots.`, { type: 'warning' });
+      toast(`A ${noun.one} can hold up to ${APP.maxImagesPerCase} screenshots.`, { type: 'warning' });
       return;
     }
     const { records, rejected } = await processImageFiles(files.slice(0, room + 5), { source });
     const added = await store.addImages(c.id, records);
-    if (added) toast(`${plural(added, 'screenshot')} added to ${testId(store.indexOf(c.id))}`, { type: 'success' });
+    if (added) toast(`${plural(added, 'screenshot')} added to ${itemId(store.indexOf(c.id))}`, { type: 'success' });
     if (rejected.length) {
       toast(rejected.slice(0, 3).map((r) => `${r.name}: ${r.reason}`).join(' · '), { type: 'error', title: `${plural(rejected.length, 'file')} not added` });
     }
-    if (records.length > added) toast(`Only ${APP.maxImagesPerCase} screenshots fit on one test case.`, { type: 'warning' });
+    if (records.length > added) toast(`Only ${APP.maxImagesPerCase} screenshots fit on one ${noun.one}.`, { type: 'warning' });
   }
 
   async function browseImages() {
@@ -382,7 +390,7 @@ export function mount(root, ws) {
   card.addEventListener('dragleave', onDragLeave);
   card.addEventListener('drop', onDrop);
   // stop the browser from navigating away when a file is dropped outside the card
-  const docDrag = (e) => { if (hasFiles(e.dataTransfer) && !card.contains(e.target)) { e.preventDefault(); if (e.type === 'drop') toast('Drop screenshots onto the test case card.', { type: 'info' }); } };
+  const docDrag = (e) => { if (hasFiles(e.dataTransfer) && !card.contains(e.target)) { e.preventDefault(); if (e.type === 'drop') toast(`Drop screenshots onto the ${noun.one} card.`, { type: 'info' }); } };
   document.addEventListener('dragover', docDrag);
   document.addEventListener('drop', docDrag);
 
@@ -433,22 +441,22 @@ export function mount(root, ws) {
     }
     if (store.index < store.count - 1) {
       navTo(store.index + 1, 'next');
-      if (fromKeyboard) inputs.title.focus({ preventScroll: true });
+      if (fromKeyboard) inputs[firstKey].focus({ preventScroll: true });
       return;
     }
     const at = store.addCase();
     if (at < 0) {
-      toast(`The template holds up to ${APP.maxCases.toLocaleString()} test cases.`, { type: 'warning', title: 'Limit reached' });
+      toast(def.maxItemsMessage, { type: 'warning', title: 'Limit reached' });
       return;
     }
     navTo(at, 'next');
-    inputs.title.focus({ preventScroll: true });
+    inputs[firstKey].focus({ preventScroll: true });
   }
 
   function prev({ fromKeyboard = false } = {}) {
     if (store.index === 0) return;
     navTo(store.index - 1, 'prev');
-    if (fromKeyboard) inputs.title.focus({ preventScroll: true });
+    if (fromKeyboard) inputs[firstKey].focus({ preventScroll: true });
   }
 
   function goFirst() {
@@ -464,24 +472,24 @@ export function mount(root, ws) {
     bookmarkBtn.classList.remove('pop');
     void bookmarkBtn.offsetWidth;
     bookmarkBtn.classList.add('pop');
-    toast(on ? `${testId(store.index)} bookmarked` : `Bookmark removed from ${testId(store.index)}`, { type: on ? 'success' : 'info', duration: 2200 });
+    toast(on ? `${itemId(store.index)} bookmarked` : `Bookmark removed from ${itemId(store.index)}`, { type: on ? 'success' : 'info', duration: 2200 });
   }
 
   function clearCurrent() {
     if (!hasContent(current)) return;
     const handle = store.clearCase(current.id);
-    undoToast(`${testId(store.index)} cleared`, handle);
-    inputs.title.focus();
+    undoToast(`${itemId(store.index)} cleared`, handle);
+    inputs[firstKey].focus();
   }
 
   function deleteCurrent() {
-    const label = testId(store.index);
+    const label = itemId(store.index);
     const handle = store.deleteCase(store.index);
     undoToast(`${label} deleted`, handle);
   }
 
   function editCounter() {
-    const input = h('input.counter-input', { type: 'number', min: 1, max: store.count, value: store.index + 1, 'aria-label': `Go to test case (1 to ${store.count})` });
+    const input = h('input.counter-input', { type: 'number', min: 1, max: store.count, value: store.index + 1, 'aria-label': `Go to ${noun.one} (1 to ${store.count})` });
     counterValue.replaceWith(input);
     input.select();
     let finished = false;
@@ -506,25 +514,25 @@ export function mount(root, ws) {
 
   async function finish() {
     const dropped = store.pruneEmpty();
-    if (dropped) toast(`${plural(dropped, 'empty test case')} removed`, { type: 'info' });
+    if (dropped) toast(`${plural(dropped, `empty ${noun.one}`)} removed`, { type: 'info' });
     const cases = store.state.cases;
     if (!cases.some(hasContent)) {
-      toast('Add at least one test case before finishing.', { type: 'warning' });
-      inputs.title.focus();
+      toast(`Add at least one ${noun.one} before finishing.`, { type: 'warning' });
+      inputs[firstKey].focus();
       return;
     }
     const incomplete = cases.map((c, i) => ({ c, i })).filter((x) => !isComplete(x.c));
     if (incomplete.length) {
-      const list = h('ul', incomplete.slice(0, 6).map(({ c, i }) => h('li', h('b', testId(i)), ` — missing ${missingFields(c).map((k) => FIELD_BY_KEY[k].label).join(', ')}`)));
+      const list = h('ul', incomplete.slice(0, 6).map(({ c, i }) => h('li', h('b', itemId(i)), ` — missing ${missingFields(c).map((k) => FIELD_BY_KEY[k].label).join(', ')}`)));
       if (incomplete.length > 6) list.append(h('li', `…and ${incomplete.length - 6} more`));
       const choice = await openModal({
-        title: `${plural(incomplete.length, 'test case')} ${incomplete.length === 1 ? 'is' : 'are'} incomplete`,
+        title: `${plural(incomplete.length, noun.one, noun.many)} ${incomplete.length === 1 ? 'is' : 'are'} incomplete`,
         iconName: 'alert-triangle',
         tone: 'warning',
-        body: [h('p', 'These test cases are missing required fields. You can fix them now, or continue and they will be reported as they are.'), list],
+        body: [h('p', `These ${noun.many} are missing required fields. You can fix them now, or continue and they will be reported as they are.`), list],
         actions: [
           { label: 'Continue anyway', value: 'continue' },
-          { label: `Fix ${testId(incomplete[0].i)}`, value: 'fix', variant: 'primary', autofocus: true },
+          { label: `Fix ${itemId(incomplete[0].i)}`, value: 'fix', variant: 'primary', autofocus: true },
         ],
       });
       if (!choice) return;
@@ -534,7 +542,7 @@ export function mount(root, ws) {
         return;
       }
     }
-    location.hash = '#/testcases/report';
+    location.hash = ws.routes.report;
   }
 
   // ---------- keyboard ----------
@@ -575,11 +583,11 @@ export function mount(root, ws) {
     }),
     store.on('images', ({ id }) => { if (id === current.id) { renderShots(); refresh(); } }),
     store.on('bookmark', () => refresh()),
-    store.on('lists', () => inputs.account.refresh?.()),
+    store.on('lists', () => FIELDS.forEach((f) => inputs[f.key].refresh?.())),
   ];
 
   fill('jump');
-  if (!hasContent(current)) setTimeout(() => inputs.title.focus({ preventScroll: true }), 50);
+  if (!hasContent(current)) setTimeout(() => inputs[firstKey].focus({ preventScroll: true }), 50);
 
   return () => {
     offs.forEach((off) => off());
